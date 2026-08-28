@@ -1,10 +1,8 @@
-{{.Title}}
-
 Hi {{.RecipientName}},
 {{range .Intro}}
 {{.}}
 {{end}}{{if .Badge}}
-** {{.Badge}} **
+{{.Badge}}
 {{end}}{{if .Rows}}{{range .Rows}}
 {{.Label}}: {{.Value}}{{end}}
 {{end}}{{if .ActionURL}}
@@ -13,11 +11,12 @@ Hi {{.RecipientName}},
 {{end}}{{if .ThingsToBring}}
 What to bring: {{.ThingsToBring}}
 {{end}}{{if .Notes}}
-Notes: {{.Notes}}
+{{.Notes}}
 {{end}}{{if .SecondaryText}}
 {{.SecondaryText}}
 {{end}}
--- {{.OrganizerName}}
+Thanks,
+{{.OrganizerName}}
 {{if .ManageURL}}
-Manage my RSVP: {{.ManageURL}}{{end}}{{if .UnsubscribeURL}}
-Unsubscribe: {{.UnsubscribeURL}}{{end}}
+Change or cancel your RSVP: {{.ManageURL}}{{end}}{{if .UnsubscribeURL}}
+Stop receiving these: {{.UnsubscribeURL}}{{end}}

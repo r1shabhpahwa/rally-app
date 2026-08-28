@@ -63,6 +63,7 @@ func (s *Server) handleSessionForm(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		sess = model.Session{
+			Venue:                 defaults.Venue,
 			Courts:                defaults.Courts,
 			CostPerCourtHourCents: defaults.CostPerCourtHourCents,
 			MaxPlayers:            defaults.MaxPlayers,
@@ -78,6 +79,7 @@ func (s *Server) handleSessionForm(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if last != nil {
+				sess.Venue = last.Venue
 				sess.Courts = last.Courts
 				sess.CostPerCourtHourCents = last.CostPerCourtHourCents
 				sess.MaxPlayers = last.MaxPlayers
@@ -164,6 +166,7 @@ func (s *Server) parseSessionForm(r *http.Request) (model.Session, []model.Court
 
 	sess = model.Session{
 		Date: date, StartTime: start, EndTime: end,
+		Venue:                 strings.TrimSpace(r.PostFormValue("venue")),
 		Courts:                formInt(r, "courts", 0),
 		CostPerCourtHourCents: cost,
 		MaxPlayers:            formInt(r, "max_players", 0),

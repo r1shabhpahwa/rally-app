@@ -8,6 +8,7 @@
   {{if eq .Data.Status "Cancelled"}}<div class="flash flash-error">This session has been cancelled.</div>{{end}}
 
   <table>
+    {{if $s.Venue}}<tr><td class="muted">Where</td><td>{{$s.Venue}}</td></tr>{{end}}
     <tr><td class="muted">Spots</td><td>{{.Data.Roster.Headcount}} of {{$s.MaxPlayers}} filled</td></tr>
     <tr><td class="muted">Sign up by</td><td>{{.Data.Deadline}}</td></tr>
   </table>

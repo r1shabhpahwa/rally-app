@@ -8,7 +8,7 @@
   <h1 style="margin-bottom:0">{{dateLine $s}}</h1>
   <span class="{{statusClass .Data.Status}}">{{.Data.Status}}</span>
 </div>
-<p class="sub">{{timeRange $s}} · {{$s.Courts}} {{plural $s.Courts "court" "courts"}}</p>
+<p class="sub">{{timeRange $s}} · {{$s.Courts}} {{plural $s.Courts "court" "courts"}}{{if $s.Venue}}<br>{{$s.Venue}}{{end}}</p>
 
 <div class="card">
   <div class="stats">

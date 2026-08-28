@@ -61,12 +61,13 @@ func Render(d Data) (html, text string, err error) {
 // Context carries everything the composers need about a session, so callers
 // assemble it once per send rather than threading a dozen arguments around.
 type Context struct {
-	Session       model.Session
-	Roster        model.Roster
-	Loc           *time.Location
-	BaseURL       string
-	ThingsToBring string
-	OrganizerName string
+	Session        model.Session
+	Roster         model.Roster
+	Loc            *time.Location
+	BaseURL        string
+	ThingsToBring  string
+	OrganizerName  string
+	OrganizerEmail string
 }
 
 // ManageURL is the participant's personal link: the signup page before they
@@ -127,8 +128,13 @@ func (c Context) sessionRows(includeSpots bool) []Row {
 	rows := []Row{
 		{Label: "Date", Value: c.DateLine()},
 		{Label: "Time", Value: c.TimeLine()},
-		{Label: "Courts", Value: fmt.Sprintf("%d", c.Session.Courts)},
 	}
+	// Plain text, not a map link: mail clients linkify an address on their own,
+	// and an extra tracking-shaped URL is one more reason to be filed as bulk.
+	if v := strings.TrimSpace(c.Session.Venue); v != "" {
+		rows = append(rows, Row{Label: "Where", Value: v})
+	}
+	rows = append(rows, Row{Label: "Courts", Value: fmt.Sprintf("%d", c.Session.Courts)})
 	if includeSpots {
 		rows = append(rows, Row{Label: "Spots", Value: c.SpotsLine()})
 	}
@@ -158,6 +164,7 @@ func (c Context) message(kind string, p model.Player, subject string, d Data) (m
 		ToEmail:        p.Email,
 		ToName:         p.Name,
 		Subject:        subject,
+		ReplyTo:        c.OrganizerEmail,
 		HTMLBody:       html,
 		TextBody:       text,
 		UnsubscribeURL: d.UnsubscribeURL,
@@ -175,10 +182,10 @@ func (c Context) Invitation(p model.Player, token string) (model.OutboxMessage, 
 		},
 		Rows:          c.sessionRows(true),
 		ActionURL:     c.ManageURL(token),
-		ActionLabel:   "Sign Up",
+		ActionLabel:   "Sign up for this session",
 		ThingsToBring: c.ThingsToBring,
 		Notes:         c.Session.Notes,
-		SecondaryText: "This link is yours alone - it is also how you change or cancel your RSVP later.",
+		SecondaryText: "That link is yours alone, and it is also how you change or cancel your RSVP later.",
 	})
 }
 

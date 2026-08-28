@@ -9,6 +9,7 @@ import (
 // Defaults prefill the new-session form so the weekly job is a couple of clicks
 // rather than six fields typed from scratch.
 type Defaults struct {
+	Venue                 string
 	Courts                int
 	CostPerCourtHourCents int64
 	MaxPlayers            int
@@ -22,6 +23,7 @@ type Defaults struct {
 // DefaultDefaults are used before the organizer has saved any settings.
 func DefaultDefaults() Defaults {
 	return Defaults{
+		Venue:                 "",
 		Courts:                3,
 		CostPerCourtHourCents: 3500,
 		MaxPlayers:            12,
@@ -58,6 +60,9 @@ func (s *Store) Defaults(ctx context.Context) (Defaults, error) {
 	m, err := s.Settings(ctx)
 	if err != nil {
 		return d, err
+	}
+	if v, ok := m["default_venue"]; ok {
+		d.Venue = v
 	}
 	if v, ok := m["default_courts"]; ok {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
@@ -97,6 +102,7 @@ func (s *Store) Defaults(ctx context.Context) (Defaults, error) {
 // SaveDefaults persists the session defaults.
 func (s *Store) SaveDefaults(ctx context.Context, d Defaults) error {
 	return s.SetSettings(ctx, map[string]string{
+		"default_venue":        d.Venue,
 		"default_courts":       strconv.Itoa(d.Courts),
 		"default_cost_cents":   strconv.FormatInt(d.CostPerCourtHourCents, 10),
 		"default_max_players":  strconv.Itoa(d.MaxPlayers),

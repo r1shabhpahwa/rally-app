@@ -575,3 +575,66 @@ func TestRSVPPagesDoNotLeakTheTokenViaReferer(t *testing.T) {
 		return sess.PublicID
 	}(), http.StatusOK)
 }
+
+func TestVenueFlowsFromSettingsToSessionToParticipantAndEmail(t *testing.T) {
+	h := newHarness(t)
+	h.login()
+	venue := "Bonsor Recreation Complex, 6550 Bonsor Ave, Burnaby"
+
+	// Saving it as a default is what makes the weekly session a couple of clicks.
+	h.post("/settings", url.Values{
+		"venue": {venue}, "courts": {"3"}, "cost": {"35.00"}, "max_players": {"12"},
+		"start_time": {"19:00"}, "end_time": {"21:00"},
+		"deadline_days_before": {"3"}, "deadline_time": {"15:00"},
+		"things_to_bring": {"Racquet and shoes"},
+	})
+	_, form := h.get("/sessions/new")
+	if !strings.Contains(form, venue) {
+		t.Fatal("the new-session form does not prefill the venue from settings")
+	}
+
+	h.post("/players/import", url.Values{"pasted": {"David,david@example.com"}})
+	h.post("/sessions/new", url.Values{
+		"date": {"2026-09-01"}, "start_time": {"19:00"}, "end_time": {"21:00"},
+		"venue": {venue}, "courts": {"3"}, "cost": {"35.00"}, "max_players": {"12"},
+		"deadline_date": {"2026-08-29"}, "deadline_time": {"15:00"},
+	})
+
+	sess, err := h.store.Session(context.Background(), 1)
+	if err != nil || sess == nil {
+		t.Fatalf("session not created: %v", err)
+	}
+	if sess.Venue != venue {
+		t.Fatalf("stored venue = %q, want %q", sess.Venue, venue)
+	}
+
+	// It has to reach the two places people actually look.
+	if _, body := h.get("/sessions/1"); !strings.Contains(body, "Bonsor") {
+		t.Error("the organizer dashboard does not show the venue")
+	}
+	h.post("/sessions/1/invite", url.Values{})
+	tokens := h.invitationTokens()
+	if _, body := h.get("/r/" + tokens["david@example.com"]); !strings.Contains(body, "Bonsor") {
+		t.Error("the participant's RSVP page does not show the venue")
+	}
+	for _, m := range h.messagesOfKind(model.KindInvitation) {
+		if !strings.Contains(m.TextBody, "Bonsor") || !strings.Contains(m.HTMLBody, "Bonsor") {
+			t.Error("the invitation email does not include the venue in both parts")
+		}
+		if m.ReplyTo == "" {
+			t.Error("the invitation has no Reply-To, so replies would not reach the organizer")
+		}
+	}
+
+	// Editing a session must be able to override the default for a one-off.
+	other := "Kensington Community Centre"
+	h.post("/sessions/1/edit", url.Values{
+		"date": {"2026-09-01"}, "start_time": {"19:00"}, "end_time": {"21:00"},
+		"venue": {other}, "courts": {"3"}, "cost": {"35.00"}, "max_players": {"12"},
+		"deadline_date": {"2026-08-29"}, "deadline_time": {"15:00"},
+	})
+	sess, _ = h.store.Session(context.Background(), 1)
+	if sess.Venue != other {
+		t.Fatalf("venue after edit = %q, want the override %q", sess.Venue, other)
+	}
+}

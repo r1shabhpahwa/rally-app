@@ -7,14 +7,14 @@ import (
 	"badminton/internal/model"
 )
 
-const sessionCols = `id, public_id, date, start_time, end_time, courts,
+const sessionCols = `id, public_id, date, start_time, end_time, venue, courts,
 	cost_per_court_hour_cents, max_players, signup_deadline_at, status, notes,
 	invitation_sent_at, last_reminder_at, created_at, updated_at`
 
 func scanSession(sc interface{ Scan(...any) error }) (model.Session, error) {
 	var s model.Session
 	var invited, reminded sql.NullInt64
-	err := sc.Scan(&s.ID, &s.PublicID, &s.Date, &s.StartTime, &s.EndTime, &s.Courts,
+	err := sc.Scan(&s.ID, &s.PublicID, &s.Date, &s.StartTime, &s.EndTime, &s.Venue, &s.Courts,
 		&s.CostPerCourtHourCents, &s.MaxPlayers, &s.SignupDeadlineAt, &s.Status, &s.Notes,
 		&invited, &reminded, &s.CreatedAt, &s.UpdatedAt)
 	if invited.Valid {
@@ -33,11 +33,11 @@ func scanSession(sc interface{ Scan(...any) error }) (model.Session, error) {
 func (s *Store) CreateSession(ctx context.Context, in model.Session) (*model.Session, error) {
 	in.PublicID = NewToken()
 	res, err := s.db.ExecContext(ctx,
-		`INSERT INTO session (public_id, date, start_time, end_time, courts,
+		`INSERT INTO session (public_id, date, start_time, end_time, venue, courts,
 			cost_per_court_hour_cents, max_players, signup_deadline_at, status, notes,
 			created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, unixepoch(), unixepoch())`,
-		in.PublicID, in.Date, in.StartTime, in.EndTime, in.Courts,
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, unixepoch(), unixepoch())`,
+		in.PublicID, in.Date, in.StartTime, in.EndTime, in.Venue, in.Courts,
 		in.CostPerCourtHourCents, in.MaxPlayers, in.SignupDeadlineAt, in.Status, in.Notes)
 	if err != nil {
 		return nil, err
@@ -112,11 +112,11 @@ func (s *Store) LatestSession(ctx context.Context) (*model.Session, error) {
 // UpdateSession saves edits to a session's details.
 func (s *Store) UpdateSession(ctx context.Context, in model.Session) error {
 	_, err := s.db.ExecContext(ctx,
-		`UPDATE session SET date = ?, start_time = ?, end_time = ?, courts = ?,
+		`UPDATE session SET date = ?, start_time = ?, end_time = ?, venue = ?, courts = ?,
 			cost_per_court_hour_cents = ?, max_players = ?, signup_deadline_at = ?,
 			notes = ?, updated_at = unixepoch()
 		 WHERE id = ?`,
-		in.Date, in.StartTime, in.EndTime, in.Courts, in.CostPerCourtHourCents,
+		in.Date, in.StartTime, in.EndTime, in.Venue, in.Courts, in.CostPerCourtHourCents,
 		in.MaxPlayers, in.SignupDeadlineAt, in.Notes, in.ID)
 	return err
 }

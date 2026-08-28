@@ -176,9 +176,11 @@ func testContext() Context {
 	roster := model.BuildRoster(sess, []model.Entry{
 		{RSVP: model.RSVP{ID: 1, Status: model.StatusConfirmed}, PlayerName: "David"},
 	})
+	sess.Venue = "Bonsor Recreation Complex, 6550 Bonsor Ave, Burnaby"
 	return Context{
 		Session: sess, Roster: roster, Loc: loc, BaseURL: "https://badminton.test",
 		ThingsToBring: "Racquet and shoes", OrganizerName: "Alice Smith",
+		OrganizerEmail: "alice@example.com",
 	}
 }
 
@@ -279,5 +281,85 @@ func TestEveryEmailRendersBothParts(t *testing.T) {
 		if !strings.Contains(msg.HTMLBody, "<table") {
 			t.Errorf("%s: HTML part is not table-based, which breaks in Outlook", name)
 		}
+	}
+}
+
+func TestVenueAppearsInEveryRelevantEmail(t *testing.T) {
+	c := testContext()
+	p := model.Player{Name: "Diana", Email: "diana@example.com", Token: "u"}
+	entry := model.Entry{RSVP: model.RSVP{Status: model.StatusConfirmed, Token: "tok"}, PlayerName: "Diana"}
+	venue := "Bonsor Recreation Complex"
+
+	builders := map[string]func() (model.OutboxMessage, error){
+		"invitation":   func() (model.OutboxMessage, error) { return c.Invitation(p, "tok") },
+		"reminder":     func() (model.OutboxMessage, error) { return c.Reminder(p, "tok") },
+		"confirmation": func() (model.OutboxMessage, error) { return c.Confirmation(p, entry) },
+		"promoted":     func() (model.OutboxMessage, error) { return c.Promoted(p, entry) },
+	}
+	for name, build := range builders {
+		msg, err := build()
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if !strings.Contains(msg.TextBody, venue) {
+			t.Errorf("%s: plain-text body does not give the venue", name)
+		}
+		if !strings.Contains(msg.HTMLBody, venue) {
+			t.Errorf("%s: HTML body does not give the venue", name)
+		}
+	}
+}
+
+func TestVenueIsOmittedWhenNotSet(t *testing.T) {
+	c := testContext()
+	c.Session.Venue = ""
+	msg, err := c.Invitation(model.Player{Name: "D", Email: "d@example.com", Token: "u"}, "tok")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(msg.TextBody, "Where:") {
+		t.Error("an empty venue should leave the row out entirely, not print a blank one")
+	}
+}
+
+func TestRepliesReachTheOrganizer(t *testing.T) {
+	// People answer these emails ("can't make it this week"), so a reply has to
+	// land with the organizer rather than the SMTP account the app logs in as.
+	c := testContext()
+	p := model.Player{Name: "Diana", Email: "diana@example.com", Token: "u"}
+	msg, err := c.Invitation(p, "tok")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if msg.ReplyTo != "alice@example.com" {
+		t.Errorf("ReplyTo = %q, want the organizer address", msg.ReplyTo)
+	}
+}
+
+func TestInvitationReadsAsCorrespondenceNotAMailshot(t *testing.T) {
+	// The weekly invitation was being filed into Gmail's Promotions tab, where
+	// the group does not see it. These are the structural signals that pushed
+	// it there; the plain-text alternative and a single link are what keep it
+	// looking like a note from a person.
+	c := testContext()
+	msg, err := c.Invitation(model.Player{Name: "Diana", Email: "diana@example.com", Token: "u"}, "tok")
+	if err != nil {
+		t.Fatal(err)
+	}
+	html := msg.HTMLBody
+
+	if n := strings.Count(html, "<a "); n > 3 {
+		t.Errorf("%d links in the invitation; a pile of links reads as marketing", n)
+	}
+	for _, marketing := range []string{"border-radius:8px;", "background-color:#0f5132;padding"} {
+		if strings.Contains(html, marketing) {
+			t.Errorf("invitation still contains a filled call-to-action button (%q)", marketing)
+		}
+	}
+	if strings.Contains(html, "<img") {
+		t.Error("invitation contains an image; image-heavy mail is classified as promotional")
+	}
+	if strings.TrimSpace(msg.TextBody) == "" {
+		t.Error("invitation has no plain-text alternative")
 	}
 }

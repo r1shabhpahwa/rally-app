@@ -73,12 +73,26 @@ func (s *SMTPSender) Send(ctx context.Context, m model.OutboxMessage) error {
 		// A malformed address is permanent, so say so rather than retrying it four more times.
 		return fmt.Errorf("%w: %v", errPermanent, err)
 	}
+	// A reply should reach the organizer, not whatever account the app
+	// authenticates as. People do reply to these -- "can't make it this week" --
+	// and a thread a human can answer is the point.
+	if m.ReplyTo != "" {
+		if err := msg.ReplyTo(m.ReplyTo); err != nil {
+			return fmt.Errorf("reply-to address: %w", err)
+		}
+	}
 	msg.Subject(m.Subject)
 	msg.SetBodyString(gomail.TypeTextPlain, m.TextBody)
 	msg.AddAlternativeString(gomail.TypeTextHTML, m.HTMLBody)
-	if m.UnsubscribeURL != "" {
-		msg.SetGenHeader(gomail.HeaderListUnsubscribe, "<"+m.UnsubscribeURL+">")
-	}
+
+	// No List-Unsubscribe header. It is one of the strongest signals a mail
+	// client uses to decide a message is bulk, and it was helping put the
+	// weekly invitation in Gmail's Promotions tab, where the people who need to
+	// see it do not look. Every message still carries a visible unsubscribe
+	// link in its footer, and this list is ~30 known club members rather than a
+	// mailing at a scale where the header is expected of a sender. Restore the
+	// header here if the volume ever grows to where that changes.
+
 	return s.client.DialAndSendWithContext(ctx, msg)
 }
 

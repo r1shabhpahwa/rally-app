@@ -54,6 +54,7 @@ type Session struct {
 	Date                  string // YYYY-MM-DD, local
 	StartTime             string // HH:MM, local
 	EndTime               string // HH:MM, local
+	Venue                 string
 	Courts                int
 	CostPerCourtHourCents int64
 	MaxPlayers            int
@@ -109,6 +110,7 @@ type OutboxMessage struct {
 	ToEmail        string
 	ToName         string
 	Subject        string
+	ReplyTo        string
 	TextBody       string
 	HTMLBody       string
 	UnsubscribeURL string

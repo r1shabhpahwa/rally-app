@@ -8,15 +8,15 @@ import (
 )
 
 const outboxCols = `id, kind, session_id, player_id, to_email, to_name, subject,
-	text_body, html_body, unsubscribe_url, status, attempts, next_attempt_at,
-	last_error, created_at, sent_at`
+	reply_to, text_body, html_body, unsubscribe_url, status, attempts,
+	next_attempt_at, last_error, created_at, sent_at`
 
 func scanOutbox(sc interface{ Scan(...any) error }) (model.OutboxMessage, error) {
 	var m model.OutboxMessage
 	var sessID, playerID, sentAt sql.NullInt64
 	err := sc.Scan(&m.ID, &m.Kind, &sessID, &playerID, &m.ToEmail, &m.ToName, &m.Subject,
-		&m.TextBody, &m.HTMLBody, &m.UnsubscribeURL, &m.Status, &m.Attempts, &m.NextAttemptAt,
-		&m.LastError, &m.CreatedAt, &sentAt)
+		&m.ReplyTo, &m.TextBody, &m.HTMLBody, &m.UnsubscribeURL, &m.Status, &m.Attempts,
+		&m.NextAttemptAt, &m.LastError, &m.CreatedAt, &sentAt)
 	if sessID.Valid {
 		v := sessID.Int64
 		m.SessionID = &v
@@ -40,10 +40,10 @@ func (s *Store) Enqueue(ctx context.Context, msgs ...model.OutboxMessage) error 
 		for _, m := range msgs {
 			if _, err := tx.ExecContext(ctx,
 				`INSERT INTO email_outbox (kind, session_id, player_id, to_email, to_name,
-					subject, text_body, html_body, unsubscribe_url, status, attempts,
-					next_attempt_at, created_at)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, unixepoch(), unixepoch())`,
-				m.Kind, m.SessionID, m.PlayerID, m.ToEmail, m.ToName, m.Subject,
+					subject, reply_to, text_body, html_body, unsubscribe_url, status,
+					attempts, next_attempt_at, created_at)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, unixepoch(), unixepoch())`,
+				m.Kind, m.SessionID, m.PlayerID, m.ToEmail, m.ToName, m.Subject, m.ReplyTo,
 				m.TextBody, m.HTMLBody, m.UnsubscribeURL, model.OutboxPending); err != nil {
 				return err
 			}

@@ -183,6 +183,7 @@ func (s *Server) handleSettingsSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	defaults.Venue = strings.TrimSpace(r.PostFormValue("venue"))
 	defaults.Courts = formInt(r, "courts", defaults.Courts)
 	defaults.CostPerCourtHourCents = cost
 	defaults.MaxPlayers = formInt(r, "max_players", defaults.MaxPlayers)
@@ -281,12 +282,13 @@ func (s *Server) mailContext(ctx context.Context, sess model.Session, roster mod
 		return mail.Context{}, err
 	}
 	return mail.Context{
-		Session:       sess,
-		Roster:        roster,
-		Loc:           s.cfg.Timezone,
-		BaseURL:       s.cfg.BaseURL,
-		ThingsToBring: defaults.ThingsToBring,
-		OrganizerName: s.cfg.OrganizerName,
+		Session:        sess,
+		Roster:         roster,
+		Loc:            s.cfg.Timezone,
+		BaseURL:        s.cfg.BaseURL,
+		ThingsToBring:  defaults.ThingsToBring,
+		OrganizerName:  s.cfg.OrganizerName,
+		OrganizerEmail: s.cfg.OrganizerEmail,
 	}, nil
 }
 

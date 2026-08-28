@@ -6,6 +6,11 @@
 <form method="post" action="/settings" class="card">
   <input type="hidden" name="csrf" value="{{.CSRF}}">
   <h3>Session defaults</h3>
+  <label for="venue">Venue</label>
+  <input type="text" id="venue" name="venue" value="{{$d.Venue}}"
+         placeholder="e.g. Bonsor Recreation Complex, 6550 Bonsor Ave, Burnaby">
+  <span class="faint">The usual place. Each session prefills with this and can override it.</span>
+
   <div class="row">
     <div><label for="courts">Courts</label>
       <input type="number" id="courts" name="courts" min="1" max="20" value="{{$d.Courts}}" required></div>
