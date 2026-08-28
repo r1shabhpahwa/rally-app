@@ -162,10 +162,22 @@ func (s *Server) renderAdmin(w http.ResponseWriter, r *http.Request, page string
 
 // renderPublic renders a participant-facing page with the minimal layout.
 func (s *Server) renderPublic(w http.ResponseWriter, r *http.Request, page string, v view) {
+	s.renderPublicStatus(w, r, page, v, http.StatusOK)
+}
+
+// renderPublicStatus renders a participant-facing page with an explicit status.
+// The headers are set before the status is written, because WriteHeader flushes
+// them: anything set afterwards is silently discarded, which is how a 404 on an
+// RSVP link ended up advertising the wrong Referrer-Policy.
+func (s *Server) renderPublicStatus(w http.ResponseWriter, r *http.Request, page string, v view, status int) {
 	// These pages hang off unguessable tokens: keep them out of search indexes
 	// and out of referrer headers so the token cannot leak sideways.
 	w.Header().Set("X-Robots-Tag", "noindex, nofollow")
 	w.Header().Set("Referrer-Policy", "no-referrer")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if status != http.StatusOK {
+		w.WriteHeader(status)
+	}
 	s.render(w, r, page, "public.html", v)
 }
 

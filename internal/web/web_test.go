@@ -530,3 +530,48 @@ func TestTokensAreNotWrittenToLogs(t *testing.T) {
 		t.Fatalf("redactPath rewrote an ordinary path: %q", got)
 	}
 }
+
+// A participant's token lives in the URL, so the pages that hang off it must
+// tell the browser not to put that URL in a Referer header, and must stay out
+// of search indexes. This is asserted on a real response rather than assumed,
+// because the headers are set on the way out and are easy to lose: writing the
+// status first silently discards everything set after it.
+func TestRSVPPagesDoNotLeakTheTokenViaReferer(t *testing.T) {
+	h := newHarness(t)
+	h.login()
+	h.setupSession("12")
+	h.post("/sessions/1/invite", url.Values{})
+	tokens := h.invitationTokens()
+
+	check := func(label, path string, wantStatus int) {
+		t.Helper()
+		resp, err := h.client.Get(h.http.URL + path)
+		if err != nil {
+			t.Fatalf("%s: %v", label, err)
+		}
+		defer resp.Body.Close()
+		io.Copy(io.Discard, resp.Body)
+
+		if resp.StatusCode != wantStatus {
+			t.Errorf("%s: status %d, want %d", label, resp.StatusCode, wantStatus)
+		}
+		if got := resp.Header.Get("Referrer-Policy"); got != "no-referrer" {
+			t.Errorf("%s: Referrer-Policy = %q, want no-referrer - the token would leak to other sites", label, got)
+		}
+		if got := resp.Header.Get("X-Robots-Tag"); !strings.Contains(got, "noindex") {
+			t.Errorf("%s: X-Robots-Tag = %q, want noindex", label, got)
+		}
+		if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, "text/html") {
+			t.Errorf("%s: Content-Type = %q, want text/html", label, ct)
+		}
+	}
+
+	check("valid RSVP page", "/r/"+tokens["david@example.com"], http.StatusOK)
+	// The 404 matters too: a stale or mistyped link still carries a token-shaped
+	// path, and its Referer would carry it onward.
+	check("unknown token 404", "/r/"+strings.Repeat("a", 43), http.StatusNotFound)
+	check("public signup page", "/s/"+func() string {
+		sess, _ := h.store.Session(context.Background(), 1)
+		return sess.PublicID
+	}(), http.StatusOK)
+}

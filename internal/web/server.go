@@ -260,6 +260,5 @@ func (s *Server) serverError(w http.ResponseWriter, r *http.Request, err error) 
 }
 
 func (s *Server) notFound(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotFound)
-	s.renderPublic(w, r, "notfound.html", view{Title: "Not found"})
+	s.renderPublicStatus(w, r, "notfound.html", view{Title: "Not found"}, http.StatusNotFound)
 }
