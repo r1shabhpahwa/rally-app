@@ -168,6 +168,27 @@ func (r Roster) SignupsOpen(now time.Time, loc *time.Location) bool {
 	return now.Before(s.StartAt(loc))
 }
 
+// RateLine states the court rate and how it is shared, for the audiences who
+// should not be given a figure that moves.
+//
+// Neither the total nor the per-player share is quoted: both change as people
+// sign up, so a number shown to someone deciding whether to play is wrong by
+// the time they play. An empty roster would advertise a share several times
+// the real one. The rate is the only fixed part, and dividing it by the number
+// of players is the rule everyone already understands.
+func (s Session) RateLine() string {
+	return FormatRate(s.CostPerCourtHourCents) + " per court per hour, divided by the number of players"
+}
+
+// FormatRate drops the trailing zeroes on a whole-dollar amount, so a rate
+// reads as "$35" rather than "$35.00" in the middle of a sentence.
+func FormatRate(cents int64) string {
+	if cents%100 == 0 {
+		return fmt.Sprintf("$%d", cents/100)
+	}
+	return FormatCents(cents)
+}
+
 // FormatCents renders an amount as a dollar string.
 func FormatCents(cents int64) string {
 	sign := ""

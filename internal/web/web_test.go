@@ -638,3 +638,38 @@ func TestVenueFlowsFromSettingsToSessionToParticipantAndEmail(t *testing.T) {
 		t.Fatalf("venue after edit = %q, want the override %q", sess.Venue, other)
 	}
 }
+
+func TestParticipantPagesQuoteTheRateNotAMovingTotal(t *testing.T) {
+	// Same reasoning as the emails: an invitation reaches an empty roster, so a
+	// per-player figure shown to someone deciding whether to play is several
+	// times the real one. The wording is shared with the email so they cannot
+	// drift apart.
+	h := newHarness(t)
+	h.login()
+	sessionID := h.setupSession("12")
+	h.post("/sessions/1/invite", url.Values{})
+	tokens := h.invitationTokens()
+
+	sess, _ := h.store.Session(context.Background(), sessionID)
+	pages := map[string]string{
+		"RSVP page":          "/r/" + tokens["david@example.com"],
+		"public signup page": "/s/" + sess.PublicID,
+	}
+	for label, path := range pages {
+		_, body := h.get(path)
+		if !strings.Contains(body, "$35 per court per hour, divided by the number of players") {
+			t.Errorf("%s does not quote the court rate", label)
+		}
+		for _, moving := range []string{"$210.00 total", "about $105.00 each", "$105.00 each"} {
+			if strings.Contains(body, moving) {
+				t.Errorf("%s still shows a figure that moves as people sign up: %q", label, moving)
+			}
+		}
+	}
+
+	// The organizer still needs the real numbers, and they recalculate per view.
+	_, dash := h.get("/sessions/1")
+	if !strings.Contains(dash, "$210.00") {
+		t.Error("the organizer dashboard should still show the court total")
+	}
+}

@@ -22,7 +22,7 @@
     {{if $s.Venue}}<tr><td class="muted">Where</td><td>{{$s.Venue}}</td></tr>{{end}}
     <tr><td class="muted">Spots</td><td>{{.Data.Roster.Headcount}} of {{$s.MaxPlayers}} filled</td></tr>
     <tr><td class="muted">Sign up by</td><td>{{.Data.Deadline}}</td></tr>
-    <tr><td class="muted">Cost</td><td>{{money .Data.Cost.TotalCents}} total{{if .Data.Cost.PerPlayerCents}} · about {{money .Data.Cost.PerPlayerCents}} each{{end}}</td></tr>
+    <tr><td class="muted">Cost</td><td>{{$s.RateLine}}</td></tr>
   </table>
   {{if $s.Notes}}<p class="faint">{{$s.Notes}}</p>{{end}}
 </div>

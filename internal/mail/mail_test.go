@@ -410,7 +410,7 @@ func TestRateFormatting(t *testing.T) {
 		{100, "$1"},
 		{2599, "$25.99"},
 	} {
-		if got := formatRate(tc.cents); got != tc.want {
+		if got := model.FormatRate(tc.cents); got != tc.want {
 			t.Errorf("formatRate(%d) = %q, want %q", tc.cents, got, tc.want)
 		}
 	}

@@ -110,26 +110,9 @@ func (c Context) SpotsLine() string {
 		r.Headcount, c.Session.MaxPlayers, r.SpotsLeft, plural(r.SpotsLeft, "spot", "spots"))
 }
 
-// CostLine states the court rate and how it is shared.
-//
-// Deliberately no total and no per-player figure. Both move as people sign up,
-// so any number quoted in an email is wrong by the time the session happens --
-// an early invitation would promise a share several times the real one and put
-// people off. The rate is the only part that is fixed, and the rule for
-// dividing it is what everyone already understands.
-func (c Context) CostLine() string {
-	return fmt.Sprintf("%s per court per hour, divided by the number of players",
-		formatRate(c.Session.CostPerCourtHourCents))
-}
-
-// formatRate drops the trailing zeroes on a whole-dollar amount, so a rate
-// reads as "$35" rather than "$35.00" in the middle of a sentence.
-func formatRate(cents int64) string {
-	if cents%100 == 0 {
-		return fmt.Sprintf("$%d", cents/100)
-	}
-	return model.FormatCents(cents)
-}
+// CostLine states the court rate and how it is shared. The wording is shared
+// with the RSVP page so the two cannot drift.
+func (c Context) CostLine() string { return c.Session.RateLine() }
 
 func (c Context) sessionRows(includeSpots bool) []Row {
 	rows := []Row{
