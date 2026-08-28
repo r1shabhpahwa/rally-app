@@ -192,6 +192,10 @@ func (s *Server) handleSettingsSave(w http.ResponseWriter, r *http.Request) {
 	defaults.DeadlineDaysBefore = formInt(r, "deadline_days_before", defaults.DeadlineDaysBefore)
 	defaults.DeadlineTime = deadlineTime
 	defaults.ThingsToBring = strings.TrimSpace(r.PostFormValue("things_to_bring"))
+	switch v := r.PostFormValue("organizer_notify"); v {
+	case store.NotifyAll, store.NotifyFreed, store.NotifyNone:
+		defaults.OrganizerNotify = v
+	}
 
 	if defaults.Courts < 1 || defaults.MaxPlayers < 1 {
 		s.fail(w, r, "Courts and maximum players must be at least 1.", "/settings")

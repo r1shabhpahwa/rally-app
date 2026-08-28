@@ -34,6 +34,14 @@
   <label for="things_to_bring">Things to bring (included in every invitation)</label>
   <textarea id="things_to_bring" name="things_to_bring">{{$d.ThingsToBring}}</textarea>
 
+  <label for="organizer_notify">Email me when the roster changes</label>
+  <select id="organizer_notify" name="organizer_notify">
+    <option value="all" {{if eq $d.OrganizerNotify "all"}}selected{{end}}>Every change — signups, guest changes and cancellations</option>
+    <option value="freed" {{if eq $d.OrganizerNotify "freed"}}selected{{end}}>Only when spots free up — cancellations and dropped guests</option>
+    <option value="none" {{if eq $d.OrganizerNotify "none"}}selected{{end}}>Never</option>
+  </select>
+  <span class="faint">Every change means one email per signup, so a full week can be thirty of them. "Only when spots free up" is the subset you actually have to act on.</span>
+
   <hr>
   <h3>Change password</h3>
   <div class="row">

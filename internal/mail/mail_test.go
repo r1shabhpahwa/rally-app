@@ -265,7 +265,11 @@ func TestEveryEmailRendersBothParts(t *testing.T) {
 		"confirmation": func() (model.OutboxMessage, error) { return c.Confirmation(p, entry) },
 		"promoted":     func() (model.OutboxMessage, error) { return c.Promoted(p, entry) },
 		"cancelled":    func() (model.OutboxMessage, error) { return c.Cancelled(p) },
-		"organizer":    func() (model.OutboxMessage, error) { return c.OrganizerNotice(p, "David", 1) },
+		"organizer": func() (model.OutboxMessage, error) {
+			return c.OrganizerNotice(p, model.RosterChange{
+				Who: "David", Action: model.ChangeCancelled, SpotsBefore: 2, GuestsBefore: 1,
+			})
+		},
 	}
 	for name, build := range builders {
 		msg, err := build()
@@ -412,6 +416,140 @@ func TestRateFormatting(t *testing.T) {
 	} {
 		if got := model.FormatRate(tc.cents); got != tc.want {
 			t.Errorf("formatRate(%d) = %q, want %q", tc.cents, got, tc.want)
+		}
+	}
+}
+
+func TestOrganizerNoticeDescribesWhatChanged(t *testing.T) {
+	c := testContext()
+	org := model.Player{Name: "Alice", Email: "alice@example.com", Token: "u"}
+
+	cases := []struct {
+		name    string
+		change  model.RosterChange
+		subject string
+		body    string
+	}{
+		{
+			name:    "plain signup",
+			change:  model.RosterChange{Who: "David", Action: model.ChangeSignedUp, SpotsAfter: 1},
+			subject: "David signed up",
+			body:    "David signed up.",
+		},
+		{
+			name:    "signup with a guest",
+			change:  model.RosterChange{Who: "David", Action: model.ChangeSignedUp, SpotsAfter: 2, GuestsAfter: 1},
+			subject: "David signed up",
+			body:    "signed up with 1 guest, taking 2 spots",
+		},
+		{
+			name:    "joins the waitlist",
+			change:  model.RosterChange{Who: "Sarah", Action: model.ChangeWaitlisted},
+			subject: "Sarah joined the waitlist",
+			body:    "Sarah joined the waitlist.",
+		},
+		{
+			name:    "cancels a confirmed spot",
+			change:  model.RosterChange{Who: "David", Action: model.ChangeCancelled, SpotsBefore: 2, GuestsBefore: 1},
+			subject: "David cancelled",
+			body:    "freeing 2 spots",
+		},
+		{
+			// The case that prompted this: +1 becomes +0.
+			name: "drops a guest",
+			change: model.RosterChange{Who: "David", Action: model.ChangeGuests,
+				SpotsBefore: 2, SpotsAfter: 1, GuestsBefore: 1, GuestsAfter: 0},
+			subject: "David dropped to +0",
+			body:    "changed from +1 to +0, freeing 1 spot",
+		},
+		{
+			name: "drops from +4 to +2",
+			change: model.RosterChange{Who: "David", Action: model.ChangeGuests,
+				SpotsBefore: 5, SpotsAfter: 3, GuestsBefore: 4, GuestsAfter: 2},
+			subject: "David dropped to +2",
+			body:    "changed from +4 to +2, freeing 2 spots",
+		},
+		{
+			name: "adds a guest",
+			change: model.RosterChange{Who: "David", Action: model.ChangeGuests,
+				SpotsBefore: 1, SpotsAfter: 2, GuestsBefore: 0, GuestsAfter: 1},
+			subject: "David went to +1",
+			body:    "changed from +0 to +1, taking 1 more spot",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			msg, err := c.OrganizerNotice(org, tc.change)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(msg.Subject, tc.subject) {
+				t.Errorf("subject = %q, want it to contain %q", msg.Subject, tc.subject)
+			}
+			if !strings.Contains(msg.TextBody, tc.body) {
+				t.Errorf("body does not say %q\n%s", tc.body, msg.TextBody)
+			}
+			if msg.ToEmail != "alice@example.com" {
+				t.Errorf("notice went to %q, want the organizer", msg.ToEmail)
+			}
+		})
+	}
+}
+
+func TestFreedSpotNoticesMentionTheWaitlist(t *testing.T) {
+	// The whole point of telling the organizer is so they can promote someone.
+	c := testContext()
+	pos := 1
+	c.Roster.Waitlist = []model.Entry{{
+		RSVP:       model.RSVP{Status: model.StatusWaitlist, WaitlistPosition: &pos},
+		PlayerName: "Sarah",
+	}}
+	org := model.Player{Name: "Alice", Email: "alice@example.com", Token: "u"}
+
+	msg, err := c.OrganizerNotice(org, model.RosterChange{
+		Who: "David", Action: model.ChangeCancelled, SpotsBefore: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(msg.TextBody, "1 person on the waitlist") {
+		t.Errorf("a freed-spot notice should say who is waiting:\n%s", msg.TextBody)
+	}
+
+	// A signup frees nothing, so the waitlist line would just be noise.
+	msg, err = c.OrganizerNotice(org, model.RosterChange{
+		Who: "David", Action: model.ChangeSignedUp, SpotsAfter: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(msg.TextBody, "on the waitlist") {
+		t.Error("a signup notice should not talk about the waitlist; nothing freed up")
+	}
+}
+
+func TestEveryEmailRepliesToTheOrganizer(t *testing.T) {
+	// People answer these ("can't make it this week"), and the reply has to
+	// reach a person rather than the SMTP account the app authenticates as.
+	c := testContext()
+	p := model.Player{Name: "Diana", Email: "diana@example.com", Token: "u"}
+	entry := model.Entry{RSVP: model.RSVP{Status: model.StatusConfirmed, Token: "tok"}, PlayerName: "Diana"}
+
+	builders := map[string]func() (model.OutboxMessage, error){
+		"invitation":   func() (model.OutboxMessage, error) { return c.Invitation(p, "tok") },
+		"reminder":     func() (model.OutboxMessage, error) { return c.Reminder(p, "tok") },
+		"confirmation": func() (model.OutboxMessage, error) { return c.Confirmation(p, entry) },
+		"promoted":     func() (model.OutboxMessage, error) { return c.Promoted(p, entry) },
+		"cancelled":    func() (model.OutboxMessage, error) { return c.Cancelled(p) },
+	}
+	for name, build := range builders {
+		msg, err := build()
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if msg.ReplyTo != "alice@example.com" {
+			t.Errorf("%s: ReplyTo = %q, want the organizer address", name, msg.ReplyTo)
 		}
 	}
 }

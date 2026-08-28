@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -120,6 +121,14 @@ func (s *Server) handleRSVPSignup(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
+	s.announce(r.Context(), *sess, model.RosterChange{
+		Who:         outcome.Entry.PlayerName,
+		Action:      changeFor(outcome.Waitlisted),
+		SpotsBefore: heldSpots(entry),
+		SpotsAfter:  heldSpots(&outcome.Entry),
+		GuestsAfter: outcome.Entry.GuestCount,
+	})
+
 	if outcome.Waitlisted {
 		s.ok(w, r, fmt.Sprintf("You are on the waitlist at number %d. We have emailed you the details.", outcome.Position), back)
 		return
@@ -128,7 +137,7 @@ func (s *Server) handleRSVPSignup(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleRSVPGuest(w http.ResponseWriter, r *http.Request) {
-	entry, _, ok := s.rsvpFromToken(w, r)
+	entry, sess, ok := s.rsvpFromToken(w, r)
 	if !ok {
 		return
 	}
@@ -156,6 +165,15 @@ func (s *Server) handleRSVPGuest(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	s.announce(r.Context(), *sess, model.RosterChange{
+		Who:          outcome.Entry.PlayerName,
+		Action:       model.ChangeGuests,
+		SpotsBefore:  heldSpots(entry),
+		SpotsAfter:   heldSpots(&outcome.Entry),
+		GuestsBefore: entry.GuestCount,
+		GuestsAfter:  outcome.Entry.GuestCount,
+	})
+
 	if outcome.Entry.GuestCount == 0 {
 		s.ok(w, r, "Your guest has been removed.", back)
 		return
@@ -178,11 +196,14 @@ func (s *Server) handleRSVPCancel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Only bother the organizer when a confirmed spot actually opened up.
-	if wasAttending {
-		if err := s.notifyOrganizer(r.Context(), *sess, entry.PlayerName, entry.GuestCount); err != nil {
-			s.log.Error("organizer notice failed", "err", err)
-		}
+	if wasAttending || entry.Status == model.StatusWaitlist {
+		s.announce(r.Context(), *sess, model.RosterChange{
+			Who:          entry.PlayerName,
+			Action:       model.ChangeCancelled,
+			SpotsBefore:  heldSpots(entry),
+			SpotsAfter:   0,
+			GuestsBefore: entry.GuestCount,
+		})
 	}
 	_ = updated
 	s.ok(w, r, "Your RSVP has been cancelled. You can sign up again from this page if your plans change.", back)
@@ -280,6 +301,12 @@ func (s *Server) handlePublicSignupPost(w http.ResponseWriter, r *http.Request) 
 		s.serverError(w, r, err)
 		return
 	}
+	s.announce(ctx, *sess, model.RosterChange{
+		Who:         outcome.Entry.PlayerName,
+		Action:      changeFor(outcome.Waitlisted),
+		SpotsAfter:  heldSpots(&outcome.Entry),
+		GuestsAfter: outcome.Entry.GuestCount,
+	})
 
 	// Send them on to their own permanent link, which is now their RSVP page.
 	if outcome.Waitlisted {
@@ -343,4 +370,30 @@ func (s *Server) handleUnsubscribePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.ok(w, r, "You have been unsubscribed and will not get any more badminton emails.", "/u/"+player.Token)
+}
+
+// announce queues an organizer notice, logging rather than failing the request:
+// a participant's RSVP must not be rejected because the organizer's mail could
+// not be queued.
+func (s *Server) announce(ctx context.Context, sess model.Session, ch model.RosterChange) {
+	if err := s.notifyOrganizer(ctx, sess, ch); err != nil {
+		s.log.Error("organizer notice failed", "who", ch.Who, "action", ch.Action, "err", err)
+	}
+}
+
+// heldSpots is how much confirmed capacity an RSVP occupies. Waitlisted and
+// cancelled entries hold none, which is what makes "spots freed" arithmetic
+// come out right without special cases at each call site.
+func heldSpots(e *model.Entry) int {
+	if e == nil || e.Status != model.StatusConfirmed {
+		return 0
+	}
+	return e.PartySize()
+}
+
+func changeFor(waitlisted bool) string {
+	if waitlisted {
+		return model.ChangeWaitlisted
+	}
+	return model.ChangeSignedUp
 }

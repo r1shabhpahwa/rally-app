@@ -18,7 +18,17 @@ type Defaults struct {
 	DeadlineDaysBefore    int
 	DeadlineTime          string
 	ThingsToBring         string
+	// OrganizerNotify controls how much roster traffic reaches the organizer:
+	// "all" every change, "freed" only when capacity comes back, "none".
+	OrganizerNotify string
 }
+
+// Organizer notification levels.
+const (
+	NotifyAll   = "all"
+	NotifyFreed = "freed"
+	NotifyNone  = "none"
+)
 
 // DefaultDefaults are used before the organizer has saved any settings.
 func DefaultDefaults() Defaults {
@@ -32,6 +42,7 @@ func DefaultDefaults() Defaults {
 		DeadlineDaysBefore:    3,
 		DeadlineTime:          "15:00",
 		ThingsToBring:         "Racquet, indoor court shoes, water. Shuttles are provided.",
+		OrganizerNotify:       NotifyAll,
 	}
 }
 
@@ -96,6 +107,10 @@ func (s *Store) Defaults(ctx context.Context) (Defaults, error) {
 	if v, ok := m["things_to_bring"]; ok {
 		d.ThingsToBring = v
 	}
+	switch m["organizer_notify"] {
+	case NotifyAll, NotifyFreed, NotifyNone:
+		d.OrganizerNotify = m["organizer_notify"]
+	}
 	return d, nil
 }
 
@@ -111,6 +126,7 @@ func (s *Store) SaveDefaults(ctx context.Context, d Defaults) error {
 		"deadline_days_before": strconv.Itoa(d.DeadlineDaysBefore),
 		"deadline_time":        d.DeadlineTime,
 		"things_to_bring":      d.ThingsToBring,
+		"organizer_notify":     d.OrganizerNotify,
 	})
 }
 

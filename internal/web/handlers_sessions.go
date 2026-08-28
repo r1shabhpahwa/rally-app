@@ -712,9 +712,25 @@ func (s *Server) sendConfirmation(ctx context.Context, sess model.Session, entry
 	return nil
 }
 
-// notifyOrganizer tells the organizer someone dropped out, which is what
-// prompts them to open the dashboard and promote from the waitlist.
-func (s *Server) notifyOrganizer(ctx context.Context, sess model.Session, who string, guests int) error {
+// notifyOrganizer tells the organizer what changed on the roster. It is what
+// prompts them to open the dashboard and promote from the waitlist, so it is
+// deliberately per-event rather than a digest -- but it is also the one thing
+// here that can produce thirty emails in an evening, which is why the level is
+// a setting rather than a constant.
+func (s *Server) notifyOrganizer(ctx context.Context, sess model.Session, ch model.RosterChange) error {
+	defaults, err := s.store.Defaults(ctx)
+	if err != nil {
+		return err
+	}
+	switch defaults.OrganizerNotify {
+	case store.NotifyNone:
+		return nil
+	case store.NotifyFreed:
+		if !ch.FreesSpots() {
+			return nil
+		}
+	}
+
 	roster, err := s.store.Roster(ctx, sess)
 	if err != nil {
 		return err
@@ -723,7 +739,7 @@ func (s *Server) notifyOrganizer(ctx context.Context, sess model.Session, who st
 	if err != nil {
 		return err
 	}
-	msg, err := mc.OrganizerNotice(s.organizerAsPlayer(), who, guests)
+	msg, err := mc.OrganizerNotice(s.organizerAsPlayer(), ch)
 	if err != nil {
 		return err
 	}

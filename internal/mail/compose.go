@@ -273,27 +273,76 @@ func (c Context) Cancelled(p model.Player) (model.OutboxMessage, error) {
 	})
 }
 
-// OrganizerNotice tells the organizer that someone dropped out, which is what
-// prompts them to look at the dashboard and promote from the waitlist.
-func (c Context) OrganizerNotice(to model.Player, who string, guests int) (model.OutboxMessage, error) {
+// OrganizerNotice tells the organizer what just changed on the roster, in the
+// terms they act on: who, and how many spots moved. Cancellations and dropped
+// guests are the ones that may need a promotion from the waitlist, so the
+// subject says so plainly rather than burying it.
+func (c Context) OrganizerNotice(to model.Player, ch model.RosterChange) (model.OutboxMessage, error) {
 	title := "Badminton - " + c.DateLine()
-	party := 1 + guests
-	intro := []string{
-		fmt.Sprintf("%s cancelled, freeing %d %s.", who, party, plural(party, "spot", "spots")),
+	headline, subject := describeChange(ch)
+
+	intro := []string{headline}
+	if ch.FreesSpots() {
+		if n := len(c.Roster.Waitlist); n > 0 {
+			intro = append(intro, fmt.Sprintf("There %s %d %s on the waitlist.",
+				plural(n, "is", "are"), n, plural(n, "person", "people")))
+		} else {
+			intro = append(intro, "Nobody is on the waitlist.")
+		}
 	}
-	if n := len(c.Roster.Waitlist); n > 0 {
-		intro = append(intro, fmt.Sprintf("There %s %d %s on the waitlist.",
-			plural(n, "is", "are"), n, plural(n, "person", "people")))
-	}
-	return c.message(model.KindOrganizer, to, "Cancellation: "+title, Data{
+
+	return c.message(model.KindOrganizer, to, subject+" - "+title, Data{
 		Title:       title,
-		Preheader:   who + " cancelled.",
+		Preheader:   headline,
 		Intro:       intro,
 		Rows:        c.sessionRows(true),
 		ActionURL:   c.BaseURL + fmt.Sprintf("/sessions/%d", c.Session.ID),
 		ActionLabel: "Open session dashboard",
 	})
 }
+
+// describeChange turns a roster change into a sentence and a subject prefix.
+func describeChange(ch model.RosterChange) (headline, subject string) {
+	switch ch.Action {
+	case model.ChangeSignedUp:
+		if ch.GuestsAfter > 0 {
+			return fmt.Sprintf("%s signed up with %d %s, taking %d %s.",
+					ch.Who, ch.GuestsAfter, plural(ch.GuestsAfter, "guest", "guests"),
+					ch.SpotsAfter, plural(ch.SpotsAfter, "spot", "spots")),
+				ch.Who + " signed up"
+		}
+		return fmt.Sprintf("%s signed up.", ch.Who), ch.Who + " signed up"
+
+	case model.ChangeWaitlisted:
+		return fmt.Sprintf("%s joined the waitlist.", ch.Who), ch.Who + " joined the waitlist"
+
+	case model.ChangeCancelled:
+		if ch.SpotsBefore > 0 {
+			return fmt.Sprintf("%s cancelled, freeing %d %s.",
+					ch.Who, ch.SpotsBefore, plural(ch.SpotsBefore, "spot", "spots")),
+				ch.Who + " cancelled"
+		}
+		return fmt.Sprintf("%s cancelled from the waitlist.", ch.Who), ch.Who + " cancelled"
+
+	case model.ChangeGuests:
+		// The guest count is what changed, so say it the way the organizer
+		// would: "+1 to +0", not "party size 2 to 1".
+		before, after := guestLabel(ch.GuestsBefore), guestLabel(ch.GuestsAfter)
+		if ch.FreesSpots() {
+			n := ch.SpotsFreed()
+			return fmt.Sprintf("%s changed from %s to %s, freeing %d %s.",
+					ch.Who, before, after, n, plural(n, "spot", "spots")),
+				fmt.Sprintf("%s dropped to %s", ch.Who, after)
+		}
+		n := ch.SpotsAfter - ch.SpotsBefore
+		return fmt.Sprintf("%s changed from %s to %s, taking %d more %s.",
+				ch.Who, before, after, n, plural(n, "spot", "spots")),
+			fmt.Sprintf("%s went to %s", ch.Who, after)
+	}
+	return ch.Who + " changed their RSVP.", ch.Who + " changed their RSVP"
+}
+
+func guestLabel(guests int) string { return fmt.Sprintf("+%d", guests) }
 
 // TestMessage verifies SMTP settings without involving a session.
 func TestMessage(baseURL, organizerName, to string) (model.OutboxMessage, error) {

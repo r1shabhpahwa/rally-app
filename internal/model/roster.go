@@ -197,3 +197,36 @@ func FormatCents(cents int64) string {
 	}
 	return fmt.Sprintf("%s$%d.%02d", sign, cents/100, cents%100)
 }
+
+// Roster change kinds, used to describe to the organizer what just happened.
+const (
+	ChangeSignedUp   = "signed_up"
+	ChangeWaitlisted = "waitlisted"
+	ChangeCancelled  = "cancelled"
+	ChangeGuests     = "guests"
+)
+
+// RosterChange describes one participant's action, in terms of the confirmed
+// spots it took or gave back. Spots are counted rather than rows because that
+// is what the organizer is deciding about: whether to promote someone, and how
+// many courts to keep.
+type RosterChange struct {
+	Who          string
+	Action       string
+	SpotsBefore  int // confirmed spots this person held before
+	SpotsAfter   int // and after
+	GuestsBefore int
+	GuestsAfter  int
+}
+
+// FreesSpots reports whether the change gave capacity back, which is the case
+// the organizer may need to act on by promoting from the waitlist.
+func (c RosterChange) FreesSpots() bool { return c.SpotsAfter < c.SpotsBefore }
+
+// SpotsFreed is how much capacity came back, zero if none did.
+func (c RosterChange) SpotsFreed() int {
+	if !c.FreesSpots() {
+		return 0
+	}
+	return c.SpotsBefore - c.SpotsAfter
+}

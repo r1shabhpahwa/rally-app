@@ -259,8 +259,20 @@ func TestFullWeeklyWorkflow(t *testing.T) {
 		t.Fatal("cancelling must not auto-promote: the organizer decides")
 	}
 	notices := h.messagesOfKind(model.KindOrganizer)
-	if len(notices) != 1 || notices[0].ToEmail != "alice@example.com" {
-		t.Fatalf("organizer notices = %+v, want one to the organizer", notices)
+	var cancelNotice *model.OutboxMessage
+	for i, n := range notices {
+		if n.ToEmail != "alice@example.com" {
+			t.Fatalf("organizer notice addressed to %q, want the organizer", n.ToEmail)
+		}
+		if strings.Contains(n.Subject, "cancelled") {
+			cancelNotice = &notices[i]
+		}
+	}
+	if cancelNotice == nil {
+		t.Fatalf("no cancellation notice reached the organizer; got %d notices", len(notices))
+	}
+	if !strings.Contains(cancelNotice.TextBody, "freeing 2 spots") {
+		t.Error("the cancellation notice does not say how much capacity came back")
 	}
 
 	// --- Promotion confirms outright and emails the person. ---
@@ -671,5 +683,120 @@ func TestParticipantPagesQuoteTheRateNotAMovingTotal(t *testing.T) {
 	_, dash := h.get("/sessions/1")
 	if !strings.Contains(dash, "$210.00") {
 		t.Error("the organizer dashboard should still show the court total")
+	}
+}
+
+// organizerNotices returns the subjects of everything addressed to the organizer.
+func (h *harness) organizerNotices() []string {
+	h.t.Helper()
+	var out []string
+	for _, m := range h.messagesOfKind(model.KindOrganizer) {
+		if m.ToEmail != "alice@example.com" {
+			h.t.Fatalf("organizer notice addressed to %q", m.ToEmail)
+		}
+		out = append(out, m.Subject)
+	}
+	return out
+}
+
+func containsSub(subjects []string, want string) bool {
+	for _, s := range subjects {
+		if strings.Contains(s, want) {
+			return true
+		}
+	}
+	return false
+}
+
+func TestOrganizerIsToldAboutEveryRosterChange(t *testing.T) {
+	h := newHarness(t)
+	h.login()
+	h.setupSession("12")
+	h.post("/sessions/1/invite", url.Values{})
+	tokens := h.invitationTokens()
+	david := tokens["david@example.com"]
+
+	// Signing up.
+	h.post("/r/"+david+"/signup", url.Values{"name": {"David"}, "guest_count": {"1"}})
+	if subs := h.organizerNotices(); !containsSub(subs, "David signed up") {
+		t.Fatalf("no signup notice reached the organizer; got %v", subs)
+	}
+
+	// Dropping the guest: +1 becomes +0. This is the case that was missing.
+	h.post("/r/"+david+"/guest", url.Values{"guest_count": {"0"}})
+	if subs := h.organizerNotices(); !containsSub(subs, "David dropped to +0") {
+		t.Fatalf("no guest-drop notice; got %v", subs)
+	}
+	for _, m := range h.messagesOfKind(model.KindOrganizer) {
+		if strings.Contains(m.Subject, "dropped to +0") &&
+			!strings.Contains(m.TextBody, "changed from +1 to +0, freeing 1 spot") {
+			t.Errorf("the guest-drop notice does not say what changed:\n%s", m.TextBody)
+		}
+	}
+
+	// Cancelling outright.
+	h.post("/r/"+david+"/cancel", url.Values{})
+	if subs := h.organizerNotices(); !containsSub(subs, "David cancelled") {
+		t.Fatalf("no cancellation notice; got %v", subs)
+	}
+}
+
+func TestOrganizerNotificationLevelIsRespected(t *testing.T) {
+	// Every signup emailing the organizer is thirty emails in a busy week,
+	// which is the problem this app exists to remove. The level has to work.
+	settings := func(level string) url.Values {
+		return url.Values{
+			"organizer_notify": {level},
+			"courts":           {"3"}, "cost": {"35.00"}, "max_players": {"12"},
+			"start_time": {"19:00"}, "end_time": {"21:00"},
+			"deadline_days_before": {"3"}, "deadline_time": {"15:00"},
+		}
+	}
+
+	t.Run("freed only", func(t *testing.T) {
+		h := newHarness(t)
+		h.login()
+		h.setupSession("12")
+		h.post("/settings", settings("freed"))
+		h.post("/sessions/1/invite", url.Values{})
+		david := h.invitationTokens()["david@example.com"]
+
+		h.post("/r/"+david+"/signup", url.Values{"name": {"David"}, "guest_count": {"1"}})
+		if subs := h.organizerNotices(); len(subs) != 0 {
+			t.Fatalf("a signup notified the organizer at the 'freed' level: %v", subs)
+		}
+		// Dropping a guest gives capacity back, so this one must arrive.
+		h.post("/r/"+david+"/guest", url.Values{"guest_count": {"0"}})
+		if subs := h.organizerNotices(); !containsSub(subs, "dropped to +0") {
+			t.Fatalf("a freed spot did not notify at the 'freed' level: %v", subs)
+		}
+	})
+
+	t.Run("none", func(t *testing.T) {
+		h := newHarness(t)
+		h.login()
+		h.setupSession("12")
+		h.post("/settings", settings("none"))
+		h.post("/sessions/1/invite", url.Values{})
+		david := h.invitationTokens()["david@example.com"]
+
+		h.post("/r/"+david+"/signup", url.Values{"name": {"David"}})
+		h.post("/r/"+david+"/cancel", url.Values{})
+		if subs := h.organizerNotices(); len(subs) != 0 {
+			t.Fatalf("notices were sent at the 'none' level: %v", subs)
+		}
+	})
+}
+
+func TestOrganizerAddingSomeoneDoesNotEmailThemselves(t *testing.T) {
+	// They did it; telling them about it is noise.
+	h := newHarness(t)
+	h.login()
+	h.setupSession("12")
+	h.post("/sessions/1/participants", url.Values{
+		"player_id": {"new"}, "name": {"Texted Me"}, "email": {"texted@example.com"}, "guest_count": {"0"},
+	})
+	if subs := h.organizerNotices(); len(subs) != 0 {
+		t.Fatalf("the organizer was emailed about their own action: %v", subs)
 	}
 }
