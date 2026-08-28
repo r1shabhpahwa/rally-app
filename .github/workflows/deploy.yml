@@ -190,22 +190,32 @@ jobs:
             set -euo pipefail
             CADDYFILE=/srv/jobpilot/Caddyfile
             if grep -q "badminton.bitcrate.cc" "$CADDYFILE"; then
-              echo "route present - leaving the shared proxy alone"
-              exit 0
+              echo "route present in the Caddyfile"
+            else
+              echo "route missing - restoring it"
+              cp "$CADDYFILE" "/srv/badminton/Caddyfile.before-$(date +%Y%m%d-%H%M%S)"
+              printf "\n" >> "$CADDYFILE"
+              cat /srv/badminton/badminton.caddy >> "$CADDYFILE"
             fi
-            echo "route missing - restoring it"
-            cp "$CADDYFILE" "/srv/badminton/Caddyfile.before-$(date +%Y%m%d-%H%M%S)"
-            printf "\n" >> "$CADDYFILE"
-            cat /srv/badminton/badminton.caddy >> "$CADDYFILE"
+
             # Validate before reloading. A bad config must fail here rather
             # than take the other app down with it; restore the backup if so.
             if ! docker exec jobpilot-caddy-1 caddy validate --config /etc/caddy/Caddyfile; then
               echo "config invalid - rolling the Caddyfile back" >&2
-              cp "$(ls -t /srv/badminton/Caddyfile.before-* | head -1)" "$CADDYFILE"
+              latest=$(ls -t /srv/badminton/Caddyfile.before-* 2>/dev/null | head -1 || true)
+              [ -n "$latest" ] && cp "$latest" "$CADDYFILE"
               exit 1
             fi
+
+            # Always reload, never conditionally. The Caddyfile is a bind mount
+            # and Caddy does not watch it, so the file can contain the route
+            # while the running config predates it -- which is exactly what
+            # happens when the neighbouring app deploys a new Caddyfile without
+            # recreating its Caddy container. Reload is graceful and safe to
+            # repeat; skipping it to avoid churn is how the route silently
+            # never goes live.
             docker exec jobpilot-caddy-1 caddy reload --config /etc/caddy/Caddyfile
-            echo "route restored and caddy reloaded"
+            echo "caddy reloaded"
           '
 
       # The health check above talks to the container directly, so it passes
