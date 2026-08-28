@@ -196,7 +196,7 @@ func TestInvitationCarriesTheDetailsAndThePersonalLink(t *testing.T) {
 		"Tuesday, September 1",            // date
 		"7:00 PM - 9:00 PM",               // time
 		"Saturday, August 29",             // deadline
-		"$210.00",                         // cost
+		"$35 per court per hour",          // the rate, never a total
 		"11 spots left",                   // remaining capacity
 		"Racquet and shoes",               // things to bring
 		"https://badminton.test/r/tok123", // their personal link
@@ -361,5 +361,57 @@ func TestInvitationReadsAsCorrespondenceNotAMailshot(t *testing.T) {
 	}
 	if strings.TrimSpace(msg.TextBody) == "" {
 		t.Error("invitation has no plain-text alternative")
+	}
+}
+
+func TestEmailsQuoteTheRateAndNeverATotal(t *testing.T) {
+	// A total and a per-player share both move as people sign up, so any figure
+	// quoted in an email is wrong by the time the session happens. An early
+	// invitation would promise a share several times the real one. The rate is
+	// the only part that is fixed.
+	c := testContext()
+	p := model.Player{Name: "Diana", Email: "diana@example.com", Token: "u"}
+	entry := model.Entry{RSVP: model.RSVP{Status: model.StatusConfirmed, Token: "tok"}, PlayerName: "Diana"}
+
+	builders := map[string]func() (model.OutboxMessage, error){
+		"invitation":   func() (model.OutboxMessage, error) { return c.Invitation(p, "tok") },
+		"reminder":     func() (model.OutboxMessage, error) { return c.Reminder(p, "tok") },
+		"confirmation": func() (model.OutboxMessage, error) { return c.Confirmation(p, entry) },
+		"promoted":     func() (model.OutboxMessage, error) { return c.Promoted(p, entry) },
+	}
+	// 3 courts x 2h x $35 = $210 total, $105 each at the two confirmed players.
+	forbidden := []string{"$210", "$105", "total for", "each at"}
+
+	for name, build := range builders {
+		msg, err := build()
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		for _, part := range []struct{ what, body string }{{"text", msg.TextBody}, {"html", msg.HTMLBody}} {
+			for _, bad := range forbidden {
+				if strings.Contains(part.body, bad) {
+					t.Errorf("%s (%s) quotes a figure that will be out of date: %q", name, part.what, bad)
+				}
+			}
+			if !strings.Contains(part.body, "divided by the number of players") {
+				t.Errorf("%s (%s) does not explain how the cost is shared", name, part.what)
+			}
+		}
+	}
+}
+
+func TestRateFormatting(t *testing.T) {
+	for _, tc := range []struct {
+		cents int64
+		want  string
+	}{
+		{3500, "$35"},    // whole dollars read better without the zeroes
+		{3750, "$37.50"}, // but cents must still show
+		{100, "$1"},
+		{2599, "$25.99"},
+	} {
+		if got := formatRate(tc.cents); got != tc.want {
+			t.Errorf("formatRate(%d) = %q, want %q", tc.cents, got, tc.want)
+		}
 	}
 }

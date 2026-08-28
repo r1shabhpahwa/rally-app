@@ -110,18 +110,25 @@ func (c Context) SpotsLine() string {
 		r.Headcount, c.Session.MaxPlayers, r.SpotsLeft, plural(r.SpotsLeft, "spot", "spots"))
 }
 
-// CostLine describes the court cost and the current per-player share.
+// CostLine states the court rate and how it is shared.
+//
+// Deliberately no total and no per-player figure. Both move as people sign up,
+// so any number quoted in an email is wrong by the time the session happens --
+// an early invitation would promise a share several times the real one and put
+// people off. The rate is the only part that is fixed, and the rule for
+// dividing it is what everyone already understands.
 func (c Context) CostLine() string {
-	cost := c.Session.Cost(c.Roster.Headcount)
-	base := fmt.Sprintf("%s total for %d %s",
-		model.FormatCents(cost.TotalCents), c.Session.Courts,
-		plural(c.Session.Courts, "court", "courts"))
-	if cost.PerPlayerCents > 0 {
-		return fmt.Sprintf("%s - about %s each at %d %s",
-			base, model.FormatCents(cost.PerPlayerCents), cost.Headcount,
-			plural(cost.Headcount, "player", "players"))
+	return fmt.Sprintf("%s per court per hour, divided by the number of players",
+		formatRate(c.Session.CostPerCourtHourCents))
+}
+
+// formatRate drops the trailing zeroes on a whole-dollar amount, so a rate
+// reads as "$35" rather than "$35.00" in the middle of a sentence.
+func formatRate(cents int64) string {
+	if cents%100 == 0 {
+		return fmt.Sprintf("$%d", cents/100)
 	}
-	return base
+	return model.FormatCents(cents)
 }
 
 func (c Context) sessionRows(includeSpots bool) []Row {
