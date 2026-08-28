@@ -1,0 +1,217 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  # Never let two deploys race on the box.
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Formatting
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "These files need gofmt:"; echo "$unformatted"; exit 1
+          fi
+      - name: Vet
+        run: go vet ./...
+      - name: Tests
+        run: go test -count=1 ./...
+
+  build:
+    name: Build image
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          # Tagged by commit so a deploy is pinned to an exact build and a
+          # rollback is just re-running with an older tag.
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+
+  deploy:
+    name: Deploy
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check deploy configuration
+        id: cfg
+        run: |
+          if [ -z "${{ secrets.DEPLOY_HOST }}" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Deploy secrets are not set yet, so the image was built but not deployed. Add them under Settings > Secrets and variables > Actions, then re-run."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up SSH
+        if: steps.cfg.outputs.configured == 'true'
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          # Pinned host key: without it the first connection would accept
+          # whatever answers on that address.
+          echo "${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Render .env from secrets
+        if: steps.cfg.outputs.configured == 'true'
+        run: |
+          set +x
+          umask 077
+          cat > app.env <<EOF
+          APP_BASE_URL=${{ secrets.APP_BASE_URL }}
+          APP_TIMEZONE=${{ secrets.APP_TIMEZONE }}
+          ORGANIZER_NAME=${{ secrets.ORGANIZER_NAME }}
+          ORGANIZER_EMAIL=${{ secrets.ORGANIZER_EMAIL }}
+          ORGANIZER_PASSWORD=${{ secrets.ORGANIZER_PASSWORD }}
+          SMTP_HOST=${{ secrets.SMTP_HOST }}
+          SMTP_PORT=${{ secrets.SMTP_PORT }}
+          SMTP_USER=${{ secrets.SMTP_USER }}
+          SMTP_PASS=${{ secrets.SMTP_PASS }}
+          SMTP_FROM=${{ secrets.SMTP_FROM }}
+          SMTP_FROM_NAME=${{ secrets.SMTP_FROM_NAME }}
+          SMTP_TLS=${{ secrets.SMTP_TLS }}
+          SMTP_RATE_PER_SEC=${{ secrets.SMTP_RATE_PER_SEC }}
+          TRUST_PROXY=true
+          LOG_LEVEL=info
+          EOF
+
+      - name: Copy files to server
+        if: steps.cfg.outputs.configured == 'true'
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          ssh "$USER@$HOST" 'mkdir -p /srv/badminton'
+          scp deploy/compose.yaml "$USER@$HOST:/srv/badminton/compose.yaml"
+          scp app.env "$USER@$HOST:/srv/badminton/app.env"
+          scp deploy/badminton.caddy "$USER@$HOST:/srv/badminton/badminton.caddy"
+          ssh "$USER@$HOST" 'chmod 600 /srv/badminton/app.env'
+
+      - name: Pull and start
+        if: steps.cfg.outputs.configured == 'true'
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+          TAG: ${{ github.sha }}
+        run: |
+          set +x
+          # The token is piped in and the login is dropped again at the end, so
+          # no registry credential is left sitting on the box between deploys.
+          printf '%s' "$GHCR_TOKEN" | ssh "$USER@$HOST" \
+            "docker login ghcr.io -u '$GHCR_USER' --password-stdin"
+          ssh "$USER@$HOST" "
+            set -euo pipefail
+            cd /srv/badminton
+            echo 'IMAGE_TAG=$TAG' > .image-tag
+            IMAGE_TAG='$TAG' docker compose --project-name badminton pull
+            IMAGE_TAG='$TAG' docker compose --project-name badminton up -d --remove-orphans
+            docker logout ghcr.io >/dev/null 2>&1 || true
+          "
+
+      - name: Wait for health
+        if: steps.cfg.outputs.configured == 'true'
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          ssh "$USER@$HOST" '
+            for i in $(seq 1 30); do
+              if docker exec badminton wget -qO- http://127.0.0.1:8080/healthz >/dev/null 2>&1; then
+                echo "healthy after ${i}s"; exit 0
+              fi
+              sleep 1
+            done
+            echo "app did not become healthy; recent logs:" >&2
+            docker logs --tail 50 badminton >&2
+            exit 1
+          '
+
+      - name: Ensure the proxy route exists
+        if: steps.cfg.outputs.configured == 'true'
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          # The route lives in the jobpilot repo, whose deploys ship the
+          # Caddyfile. This is a safety net for the case where it goes missing:
+          # it puts the block back, and only then touches the shared proxy.
+          # Reloading unconditionally would be needless churn against the other
+          # app's front door.
+          ssh "$USER@$HOST" '
+            set -euo pipefail
+            CADDYFILE=/srv/jobpilot/Caddyfile
+            if grep -q "badminton.bitcrate.cc" "$CADDYFILE"; then
+              echo "route present - leaving the shared proxy alone"
+              exit 0
+            fi
+            echo "route missing - restoring it"
+            cp "$CADDYFILE" "/srv/badminton/Caddyfile.before-$(date +%Y%m%d-%H%M%S)"
+            printf "\n" >> "$CADDYFILE"
+            cat /srv/badminton/badminton.caddy >> "$CADDYFILE"
+            # Validate before reloading. A bad config must fail here rather
+            # than take the other app down with it; restore the backup if so.
+            if ! docker exec jobpilot-caddy-1 caddy validate --config /etc/caddy/Caddyfile; then
+              echo "config invalid - rolling the Caddyfile back" >&2
+              cp "$(ls -t /srv/badminton/Caddyfile.before-* | head -1)" "$CADDYFILE"
+              exit 1
+            fi
+            docker exec jobpilot-caddy-1 caddy reload --config /etc/caddy/Caddyfile
+            echo "route restored and caddy reloaded"
+          '
+
+      - name: Clean up old images
+        if: steps.cfg.outputs.configured == 'true'
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          ssh "$USER@$HOST" 'docker image prune -f --filter "until=168h" >/dev/null; echo pruned'

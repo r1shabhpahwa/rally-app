@@ -1,0 +1,36 @@
+# Deployed to /srv/badminton/compose.yaml. The image is built by GitHub Actions
+# and pulled from GHCR; nothing is built on the box.
+
+services:
+  app:
+    image: ghcr.io/r1shabhpahwa/rally-app:${IMAGE_TAG:-latest}
+    container_name: badminton
+    # Deliberately not named .env: Compose auto-loads a file by that name for
+    # its own ${...} interpolation, which mangles any value containing a $ --
+    # SMTP passwords being the obvious way that bites.
+    env_file: app.env
+    volumes:
+      - data:/data
+    networks:
+      # Joins the network the existing Caddy is already on, so the proxy can
+      # reach this container by name. Nothing is published to the host: the
+      # only way in is through Caddy.
+      jobpilot_default:
+        aliases: [badminton]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    # The box carries Postgres and a Chromium-rendering worker; this app idles
+    # around 10 MB, so a low cap costs nothing and bounds the blast radius.
+    mem_limit: 128m
+    restart: unless-stopped
+
+networks:
+  jobpilot_default:
+    external: true
+
+volumes:
+  data:

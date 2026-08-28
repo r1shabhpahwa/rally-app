@@ -1,0 +1,20 @@
+# Site block for badminton.bitcrate.cc, appended to the Caddyfile that already
+# serves the other app on this box. Caddy provisions the certificate itself.
+#
+# Deliberately minimal: the app sets its own CSP, X-Content-Type-Options and
+# Referrer-Policy, and sets Referrer-Policy: no-referrer on the RSVP pages so a
+# participant's token cannot leak to another site through the Referer header.
+# Setting Referrer-Policy here would replace that and defeat it. HSTS is set
+# here because TLS terminates here, not in the app.
+badminton.bitcrate.cc {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+
+	reverse_proxy badminton:8080 {
+		header_up X-Forwarded-Proto {scheme}
+	}
+}
