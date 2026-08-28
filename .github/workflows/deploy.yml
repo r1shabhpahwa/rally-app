@@ -208,6 +208,26 @@ jobs:
             echo "route restored and caddy reloaded"
           '
 
+      # The health check above talks to the container directly, so it passes
+      # even if DNS, TLS or the proxy route is broken. This is the check that
+      # actually matches what a participant clicking a link in an email gets.
+      - name: Verify the public URL
+        if: steps.cfg.outputs.configured == 'true'
+        run: |
+          URL="${{ secrets.APP_BASE_URL }}/healthz"
+          # A first deploy has to wait for Caddy to obtain the certificate.
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$URL" || echo 000)
+            if [ "$code" = "200" ]; then
+              echo "$URL -> 200 after ${i} attempt(s)"
+              exit 0
+            fi
+            echo "attempt $i: $code"
+            sleep 5
+          done
+          echo "::error::$URL never returned 200. The container is healthy, so look at DNS, the Caddy route, or certificate issuance."
+          exit 1
+
       - name: Clean up old images
         if: steps.cfg.outputs.configured == 'true'
         env:
