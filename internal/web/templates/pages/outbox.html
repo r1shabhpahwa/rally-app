@@ -1,0 +1,35 @@
+{{define "content"}}
+<h1>Email log</h1>
+<p class="sub">Every message the app has queued. Useful when somebody says they never got the email.</p>
+<div class="card">
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>To</th><th>Subject</th><th>Status</th><th>When</th><th></th></tr></thead>
+    <tbody>
+      {{range .Data.Messages}}
+      <tr>
+        <td>{{.ToEmail}}</td>
+        <td>{{.Subject}}<br><span class="faint">{{.Kind}}</span></td>
+        <td>
+          <span class="{{statusClass .Status}}">{{.Status}}</span>
+          {{if .LastError}}<br><span class="faint">{{.LastError}}</span>{{end}}
+        </td>
+        <td class="faint">{{if .SentAt}}{{stampPtr .SentAt}}{{else}}queued {{since .CreatedAt}}{{end}}
+          {{if gt .Attempts 1}}<br>{{.Attempts}} attempts{{end}}</td>
+        <td>
+          {{if eq .Status "failed"}}
+          <form method="post" action="/outbox/{{.ID}}/retry">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}">
+            <button class="small secondary" type="submit">Retry</button>
+          </form>
+          {{end}}
+        </td>
+      </tr>
+      {{else}}
+      <tr><td colspan="5" class="empty">No email has been queued yet.</td></tr>
+      {{end}}
+    </tbody>
+  </table>
+  </div>
+</div>
+{{end}}

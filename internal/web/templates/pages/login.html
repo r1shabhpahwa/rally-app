@@ -1,0 +1,12 @@
+{{define "content"}}
+<div class="card" style="margin-top:40px">
+  <h1 style="margin-top:0">🏸 Badminton</h1>
+  <p class="sub">Sign in to manage sessions.</p>
+  <form method="post" action="/login">
+    <input type="hidden" name="next" value="{{.Data.Next}}">
+    <label for="password">Password</label>
+    <input type="password" id="password" name="password" autocomplete="current-password" autofocus required>
+    <div class="actions"><button type="submit" class="btn block">Sign in</button></div>
+  </form>
+</div>
+{{end}}

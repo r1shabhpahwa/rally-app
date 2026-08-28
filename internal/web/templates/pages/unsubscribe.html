@@ -1,0 +1,20 @@
+{{define "content"}}
+{{$p := .Data.Player}}
+<div class="card" style="margin-top:40px">
+  <h1 style="margin-top:0">Email preferences</h1>
+  <p class="muted">{{$p.Name}} · {{$p.Email}}</p>
+  {{if $p.UnsubscribedAt}}
+    <p>You are unsubscribed and will not receive badminton emails.</p>
+    <form method="post" action="/u/{{.Data.Token}}">
+      <input type="hidden" name="resubscribe" value="1">
+      <button class="block" type="submit">Start receiving emails again</button>
+    </form>
+  {{else}}
+    <p>You currently receive the weekly badminton invitation and reminders.</p>
+    <form method="post" action="/u/{{.Data.Token}}">
+      <button class="danger block" type="submit" data-confirm="Unsubscribe from all badminton emails?">Unsubscribe</button>
+    </form>
+    <p class="faint">You can come back to this page at any time to resubscribe.</p>
+  {{end}}
+</div>
+{{end}}

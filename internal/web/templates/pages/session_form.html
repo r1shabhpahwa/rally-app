@@ -1,0 +1,83 @@
+{{define "content"}}
+{{$s := .Data.Session}}
+<h1>{{if .Data.Editing}}Edit session{{else}}New session{{end}}</h1>
+<p class="sub">{{if .Data.Editing}}Changes here do not email anyone. Send a reminder afterwards if people need to know.{{else}}Prefilled from your saved defaults. Nothing is emailed until you send the invitation.{{end}}</p>
+
+<form method="post" action="{{.Data.Action}}" class="card">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+
+  <div class="row">
+    <div>
+      <label for="date">Date</label>
+      <input type="date" id="date" name="date" value="{{$s.Date}}" required>
+    </div>
+    <div>
+      <label for="start_time">Start</label>
+      <input type="time" id="start_time" name="start_time" value="{{$s.StartTime}}" required>
+    </div>
+    <div>
+      <label for="end_time">End</label>
+      <input type="time" id="end_time" name="end_time" value="{{$s.EndTime}}" required>
+    </div>
+  </div>
+
+  <div class="row">
+    <div>
+      <label for="courts">Courts</label>
+      <input type="number" id="courts" name="courts" min="1" max="20" value="{{$s.Courts}}" required>
+    </div>
+    <div>
+      <label for="cost">Cost per court, per hour</label>
+      <input type="text" id="cost" name="cost" inputmode="decimal" value="{{dollars $s.CostPerCourtHourCents}}" required>
+    </div>
+    <div>
+      <label for="max_players">Maximum players</label>
+      <input type="number" id="max_players" name="max_players" min="1" max="200" value="{{$s.MaxPlayers}}" required>
+      <span class="faint">Guests count towards this.</span>
+    </div>
+  </div>
+
+  <fieldset>
+    <legend>Signup deadline</legend>
+    <div class="row">
+      <div>
+        <label for="deadline_date">Date</label>
+        <input type="date" id="deadline_date" name="deadline_date" value="{{dateInput $s.SignupDeadlineAt}}" required>
+      </div>
+      <div>
+        <label for="deadline_time">Time</label>
+        <input type="time" id="deadline_time" name="deadline_time" value="{{timeInput $s.SignupDeadlineAt}}" required>
+      </div>
+    </div>
+    <span class="faint">Signups close automatically at this point. No need to do anything on the day.</span>
+  </fieldset>
+
+  <fieldset>
+    <legend>Court cancellation deadlines</legend>
+    <p class="faint">Optional. The last moment each court can be released without being charged for it.</p>
+    {{range $court := seq $s.Courts}}
+      {{$at := index $.Data.Deadlines $court}}
+      <div class="row" style="align-items:flex-end">
+        <div style="flex:0 0 90px"><label>Court {{$court}}</label></div>
+        <div><input type="date" name="court_deadline_date_{{$court}}" value="{{if $at}}{{dateInput $at}}{{end}}" aria-label="Court {{$court}} deadline date"></div>
+        <div><input type="time" name="court_deadline_time_{{$court}}" value="{{if $at}}{{timeInput $at}}{{end}}" aria-label="Court {{$court}} deadline time"></div>
+      </div>
+    {{end}}
+  </fieldset>
+
+  <label for="notes">Notes for the email</label>
+  <textarea id="notes" name="notes" placeholder="Anything extra people should know.">{{$s.Notes}}</textarea>
+
+  {{if not .Data.Editing}}
+  <label class="check">
+    <input type="checkbox" name="draft" value="1">
+    <span>Save as a draft — signups stay closed until you open it. Leave this unticked for the normal weekly session.</span>
+  </label>
+  {{end}}
+
+  <div class="actions">
+    <button type="submit">{{if .Data.Editing}}Save changes{{else}}Create session{{end}}</button>
+    <a class="btn secondary" href="{{if .Data.Editing}}/sessions/{{$s.ID}}{{else}}/{{end}}">Cancel</a>
+  </div>
+</form>
+{{end}}

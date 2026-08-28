@@ -1,0 +1,193 @@
+{{define "content"}}
+{{$s := .Data.Session}}
+{{$r := .Data.Roster}}
+{{$c := .Data.Cost}}
+{{$csrf := .CSRF}}
+
+<div class="card-head">
+  <h1 style="margin-bottom:0">{{dateLine $s}}</h1>
+  <span class="{{statusClass .Data.Status}}">{{.Data.Status}}</span>
+</div>
+<p class="sub">{{timeRange $s}} · {{$s.Courts}} {{plural $s.Courts "court" "courts"}}</p>
+
+<div class="card">
+  <div class="stats">
+    <div>
+      <div class="big mono">{{$r.Headcount}} / {{$s.MaxPlayers}}</div>
+      <div class="stat-label">Confirmed</div>
+    </div>
+    <div>
+      <div class="big mono">{{len $r.Waitlist}}</div>
+      <div class="stat-label">Waitlisted</div>
+    </div>
+    <div>
+      <div class="big mono">{{money $c.TotalCents}}</div>
+      <div class="stat-label">Court cost</div>
+    </div>
+    <div>
+      <div class="big mono">{{if $c.PerPlayerCents}}{{money $c.PerPlayerCents}}{{else}}—{{end}}</div>
+      <div class="stat-label">Per player</div>
+    </div>
+  </div>
+  <p class="faint">
+    {{$s.Courts}} {{plural $s.Courts "court" "courts"}} × {{$c.Minutes}} min × {{money $s.CostPerCourtHourCents}}/hour = {{money $c.TotalCents}}{{if $c.PerPlayerCents}}, split {{$c.Headcount}} ways{{if $c.HasRounding}} (rounded up to the cent){{end}}{{end}}.
+    Guests are counted as players.
+  </p>
+  <p class="faint">
+    Signups {{if .Data.SignupsOpen}}close {{stamp $s.SignupDeadlineAt}}{{else}}are closed{{if .Data.DeadlinePast}} — the deadline passed {{stamp $s.SignupDeadlineAt}}{{end}}{{end}}.
+  </p>
+</div>
+
+<div class="card">
+  <h3>Send email</h3>
+  <div class="grid two">
+    <form method="post" action="/sessions/{{$s.ID}}/invite">
+      <input type="hidden" name="csrf" value="{{$csrf}}">
+      {{if $s.InvitationSentAt}}
+        <p class="faint">Invitation sent {{stampPtr $s.InvitationSentAt}}.</p>
+        <label class="check"><input type="checkbox" name="confirm_resend" value="1"><span>Yes, send the whole invitation again</span></label>
+        <button class="secondary" type="submit" data-confirm="Send the full invitation to everyone again?">Resend invitation</button>
+      {{else}}
+        <p class="faint">Goes to everyone on the mailing list, each with their own signup link.</p>
+        <button type="submit">Send invitation</button>
+      {{end}}
+    </form>
+
+    <form method="post" action="/sessions/{{$s.ID}}/remind">
+      <input type="hidden" name="csrf" value="{{$csrf}}">
+      <p class="faint">{{if $s.LastReminderAt}}Last reminder {{stampPtr $s.LastReminderAt}}.{{else}}No reminder sent yet.{{end}}</p>
+      <label class="check"><input type="checkbox" name="include_all" value="1"><span>Send to everyone, not just people who haven't replied</span></label>
+      <button class="secondary" type="submit">Send reminder</button>
+    </form>
+  </div>
+  <p class="faint" style="margin-top:14px">
+    Delivery: {{.Data.MailStats.Sent}} sent{{if .Data.MailStats.Pending}}, {{.Data.MailStats.Pending}} queued{{end}}{{if .Data.MailStats.Failed}}, <strong>{{.Data.MailStats.Failed}} failed</strong>{{end}} · <a href="/outbox">email log</a>
+  </p>
+</div>
+
+<div class="card">
+  <h3>Confirmed — {{$r.Headcount}} of {{$s.MaxPlayers}}</h3>
+  {{if $r.Confirmed}}
+  <ul class="roster">
+    {{range $r.Confirmed}}
+    <li>
+      <span class="tick">✓</span>
+      <span class="who">{{.PlayerName}}{{if .GuestCount}} +{{.GuestCount}}{{end}}</span>
+      {{if not .PlayerActive}}<span class="badge">not on mailing list</span>{{end}}
+      {{if eq .Source "public"}}<span class="badge">signed up via link</span>{{end}}
+      <span class="spacer"></span>
+      <form method="post" action="/sessions/{{$s.ID}}/participants/{{.ID}}/remove" class="inline">
+        <input type="hidden" name="csrf" value="{{$csrf}}">
+        <button class="small danger" type="submit" data-confirm="Remove {{.PlayerName}} from this session?">Remove</button>
+      </form>
+    </li>
+    {{end}}
+  </ul>
+  {{else}}<p class="empty">Nobody has signed up yet.</p>{{end}}
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h3 style="margin:0">Waitlist — {{len $r.Waitlist}}</h3>
+    {{if $r.Waitlist}}
+    <form method="post" action="/sessions/{{$s.ID}}/promote" class="inline">
+      <input type="hidden" name="csrf" value="{{$csrf}}">
+      <button class="small" type="submit">Promote next</button>
+    </form>
+    {{end}}
+  </div>
+  {{if $r.Waitlist}}
+  <ol class="roster">
+    {{range $i, $e := $r.Waitlist}}
+    <li>
+      <span class="pos">{{add $i 1}}.</span>
+      <span class="who">{{$e.PlayerName}}{{if $e.GuestCount}} +{{$e.GuestCount}}{{end}}</span>
+      {{if gt $e.PartySize $r.SpotsLeft}}<span class="badge badge-pending">needs {{$e.PartySize}} spots</span>{{end}}
+      <span class="spacer"></span>
+      <form method="post" action="/sessions/{{$s.ID}}/participants/{{$e.ID}}/remove" class="inline">
+        <input type="hidden" name="csrf" value="{{$csrf}}">
+        <button class="small danger" type="submit" data-confirm="Remove {{$e.PlayerName}} from the waitlist?">Remove</button>
+      </form>
+    </li>
+    {{end}}
+  </ol>
+  <p class="faint">Promoting confirms the first person whose whole party fits in the free spots, and emails them straight away.</p>
+  {{else}}<p class="empty">Nobody waiting.</p>{{end}}
+</div>
+
+<div class="card">
+  <details>
+    <summary>Add someone by hand</summary>
+    <p class="faint">For the person who texted you instead of clicking the link. They get an email with their own RSVP link.</p>
+    <form method="post" action="/sessions/{{$s.ID}}/participants">
+      <input type="hidden" name="csrf" value="{{$csrf}}">
+      <label for="player_id">Somebody already on the list</label>
+      <select id="player_id" name="player_id">
+        <option value="new">— someone new —</option>
+        {{range .Data.Addable}}<option value="{{.ID}}">{{.Name}} ({{.Email}})</option>{{end}}
+      </select>
+      <div class="row">
+        <div><label for="add_name">…or a new name</label><input type="text" id="add_name" name="name"></div>
+        <div><label for="add_email">and email</label><input type="email" id="add_email" name="email"></div>
+        <div><label for="guest_count">Guests</label><input type="number" id="guest_count" name="guest_count" min="0" max="4" value="0"></div>
+      </div>
+      <label class="check"><input type="checkbox" name="add_to_list" value="1"><span>Also add them to the weekly mailing list</span></label>
+      <div class="actions"><button class="secondary" type="submit">Add to session</button></div>
+    </form>
+  </details>
+</div>
+
+{{if .Data.NoResponse}}
+<div class="card">
+  <details>
+    <summary>No reply yet — {{len .Data.NoResponse}}</summary>
+    <ul class="roster">
+      {{range .Data.NoResponse}}<li><span class="who">{{.PlayerName}}</span><span class="faint">{{.PlayerEmail}}</span></li>{{end}}
+    </ul>
+  </details>
+</div>
+{{end}}
+
+<div class="card">
+  <h3>Courts and status</h3>
+  <form method="post" action="/sessions/{{$s.ID}}/courts" class="row" style="align-items:flex-end">
+    <input type="hidden" name="csrf" value="{{$csrf}}">
+    <div style="flex:0 1 160px">
+      <label for="courts">Courts booked</label>
+      <input type="number" id="courts" name="courts" min="1" max="20" value="{{$s.Courts}}">
+    </div>
+    <div style="flex:0 0 auto"><button class="secondary" type="submit">Update courts</button></div>
+  </form>
+  <p class="faint">Dropping a court lowers the total and the per-player split straight away. It does not change how many people can play — change the maximum on the edit page for that.</p>
+
+  {{if .Data.Deadlines}}
+  <p class="faint"><strong>Court cancellation deadlines:</strong>
+    {{range .Data.Deadlines}}Court {{.CourtNumber}} by {{stamp .DeadlineAt}}. {{end}}
+  </p>
+  {{end}}
+
+  <hr>
+  <div class="actions">
+    <a class="btn secondary" href="/sessions/{{$s.ID}}/edit">Edit session</a>
+    {{if ne $s.Status "open"}}
+    <form method="post" action="/sessions/{{$s.ID}}/status" class="inline">
+      <input type="hidden" name="csrf" value="{{$csrf}}"><input type="hidden" name="status" value="open">
+      <button class="secondary" type="submit">Open signups</button>
+    </form>
+    {{end}}
+    {{if ne $s.Status "closed"}}
+    <form method="post" action="/sessions/{{$s.ID}}/status" class="inline">
+      <input type="hidden" name="csrf" value="{{$csrf}}"><input type="hidden" name="status" value="closed">
+      <button class="secondary" type="submit">Close signups</button>
+    </form>
+    {{end}}
+    {{if ne $s.Status "cancelled"}}
+    <form method="post" action="/sessions/{{$s.ID}}/status" class="inline">
+      <input type="hidden" name="csrf" value="{{$csrf}}"><input type="hidden" name="status" value="cancelled">
+      <button class="danger" type="submit" data-confirm="Cancel this session and email everyone who signed up?">Cancel session</button>
+    </form>
+    {{end}}
+  </div>
+  <p class="faint" style="margin-top:14px">Shareable signup link for anyone who was forwarded the email: <br><code>{{.Data.PublicURL}}</code></p>
+</div>
+{{end}}

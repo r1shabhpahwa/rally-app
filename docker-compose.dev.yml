@@ -1,0 +1,34 @@
+# Local development: the app plus a mail catcher, so invitations can be read in
+# a browser instead of being delivered. Run with:
+#   docker compose -f docker-compose.dev.yml up --build
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      APP_BASE_URL: http://localhost:8080
+      APP_TIMEZONE: America/Vancouver
+      ORGANIZER_NAME: Dev Organizer
+      ORGANIZER_EMAIL: organizer@example.com
+      ORGANIZER_PASSWORD: badminton123
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_TLS: none
+      SMTP_FROM: badminton@example.com
+      SMTP_FROM_NAME: Badminton
+      SMTP_RATE_PER_SEC: "20"
+      LOG_LEVEL: debug
+    volumes:
+      - dev-data:/data
+    depends_on:
+      - mailpit
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"   # web UI: read the invitations here
+      - "1025:1025"
+
+volumes:
+  dev-data:

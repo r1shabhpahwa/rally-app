@@ -1,0 +1,69 @@
+{{define "content"}}
+<div class="card-head">
+  <h1>Mailing list</h1>
+  <span class="muted">{{.Data.ActiveCount}} {{plural .Data.ActiveCount "person" "people"}} receiving email</span>
+</div>
+<p class="sub">Everyone here gets the invitation for every new session. You never pick recipients per session.</p>
+
+<div class="card">
+  <h3>Add someone</h3>
+  <form method="post" action="/players/new">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <div class="row">
+      <div><label for="name">Name</label><input type="text" id="name" name="name" required></div>
+      <div><label for="email">Email</label><input type="email" id="email" name="email" required></div>
+    </div>
+    <div class="actions"><button type="submit">Add to list</button></div>
+  </form>
+</div>
+
+<div class="card">
+  <form method="get" action="/players" class="row" style="align-items:flex-end">
+    <div style="flex:2 1 220px"><label for="q">Search</label>
+      <input type="search" id="q" name="q" value="{{.Data.Search}}" placeholder="Name or email"></div>
+    <div style="flex:0 0 auto"><button class="secondary" type="submit">Search</button></div>
+    {{if .Data.Search}}<div style="flex:0 0 auto"><a class="btn secondary" href="/players">Clear</a></div>{{end}}
+  </form>
+
+  <div class="people">
+    {{range .Data.Players}}
+    <div class="prow">
+      <form method="post" action="/players/{{.ID}}/edit" class="prow-edit">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+        <input type="text" name="name" value="{{.Name}}" aria-label="Name" required>
+        <input type="email" name="email" value="{{.Email}}" aria-label="Email" required>
+        <label class="check prow-check">
+          <input type="checkbox" name="active" value="1" {{if .Active}}checked{{end}}>
+          <span>On list</span>
+        </label>
+        <button class="small secondary" type="submit">Save</button>
+      </form>
+      <form method="post" action="/players/{{.ID}}/delete" class="prow-del">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+        <button class="small danger" type="submit"
+          data-confirm="Remove {{.Name}} from the mailing list?">Remove</button>
+      </form>
+      {{if .UnsubscribedAt}}<span class="badge badge-failed">unsubscribed</span>{{end}}
+    </div>
+    {{else}}
+    <p class="empty">Nobody on the list yet. Add someone above, or import a CSV below.</p>
+    {{end}}
+  </div>
+</div>
+
+<div class="card">
+  <details>
+    <summary>Import from CSV</summary>
+    <p class="faint">Two columns: name and email. A header row is fine, and either column order works.
+      People already on the list are matched by email and updated rather than duplicated.</p>
+    <form method="post" action="/players/import" enctype="multipart/form-data">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <label for="file">CSV file</label>
+      <input type="file" id="file" name="file" accept=".csv,text/csv">
+      <label for="pasted">…or paste rows</label>
+      <textarea id="pasted" name="pasted" placeholder="Alex Smith, alex@example.com&#10;Jordan Lee, jordan@example.com"></textarea>
+      <div class="actions"><button type="submit" class="secondary">Import</button></div>
+    </form>
+  </details>
+</div>
+{{end}}

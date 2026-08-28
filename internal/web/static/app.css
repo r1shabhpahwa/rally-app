@@ -1,0 +1,175 @@
+:root {
+  --green: #0f5132;
+  --green-dark: #0b3d26;
+  --amber: #9a6700;
+  --red: #b42318;
+  --ink: #1f2328;
+  --muted: #5c6370;
+  --faint: #8b919b;
+  --line: #e3e5e8;
+  --bg: #f4f5f7;
+  --card: #ffffff;
+  --radius: 10px;
+}
+* { box-sizing: border-box; }
+/* The UA stylesheet gives forms a bottom margin, which knocks any form used as
+   an inline control out of alignment with the text beside it. */
+form { margin: 0; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--ink);
+  background: var(--bg);
+  -webkit-text-size-adjust: 100%;
+}
+.wrap { max-width: 900px; margin: 0 auto; padding: 20px 16px 64px; }
+.wrap.narrow { max-width: 520px; }
+
+/* Header */
+.topbar { background: var(--green); color: #fff; }
+.topbar-inner { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; padding: 12px 16px; }
+.brand { color: #fff; font-weight: 700; text-decoration: none; font-size: 17px; margin-right: auto; }
+.topbar nav { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: center; }
+.topbar nav a, .linkish {
+  color: #cfe3d8; text-decoration: none; font-size: 15px; line-height: 1.55;
+  padding: 4px 0; background: none; border: 0; border-radius: 0;
+  font: inherit; font-weight: 400; cursor: pointer;
+}
+.linkish:hover { background: none; }
+.topbar nav a:hover, .linkish:hover { color: #fff; }
+.topbar nav a.on { color: #fff; font-weight: 600; box-shadow: inset 0 -2px 0 #fff; }
+.dot { background: #fff; color: var(--green); border-radius: 999px; padding: 0 6px; font-size: 12px; font-weight: 700; }
+.inline { display: inline; }
+
+/* Typography */
+h1 { font-size: 24px; margin: 20px 0 6px; }
+h2 { font-size: 18px; margin: 28px 0 10px; }
+h3 { font-size: 15px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+p { margin: 0 0 12px; }
+a { color: var(--green); }
+.sub { color: var(--muted); margin: 0 0 18px; }
+.muted { color: var(--muted); }
+.faint { color: var(--faint); font-size: 14px; }
+.big { font-size: 30px; font-weight: 700; line-height: 1.15; }
+.mono { font-variant-numeric: tabular-nums; }
+
+/* Cards */
+.card {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 18px; margin: 0 0 16px;
+}
+.card-head { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; justify-content: space-between; }
+.grid { display: grid; gap: 14px; }
+@media (min-width: 700px) { .grid.two { grid-template-columns: 1fr 1fr; } }
+
+/* Stats */
+.stats { display: flex; flex-wrap: wrap; gap: 22px; margin: 4px 0 16px; }
+.stat-label { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+
+/* Badges */
+.badge {
+  display: inline-block; padding: 3px 10px; border-radius: 999px;
+  font-size: 12px; font-weight: 600; background: #eef0f2; color: var(--muted);
+}
+.badge-open { background: #dcf3e6; color: var(--green); }
+.badge-full { background: #fdf0d5; color: var(--amber); }
+.badge-completed { background: #e8eaed; color: var(--muted); }
+.badge-cancelled { background: #fde8e6; color: var(--red); }
+.badge-closed { background: #e8eaed; color: var(--muted); }
+.badge-draft { background: #e7eefc; color: #1f4b99; }
+.badge-sent { background: #dcf3e6; color: var(--green); }
+.badge-pending { background: #fdf0d5; color: var(--amber); }
+.badge-failed { background: #fde8e6; color: var(--red); }
+
+/* Lists */
+ol.roster, ul.roster { list-style: none; margin: 0; padding: 0; }
+.roster li {
+  display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center;
+  padding: 9px 0; border-bottom: 1px solid #f0f1f3;
+}
+.roster li:last-child { border-bottom: 0; }
+.roster .who { font-weight: 600; }
+.roster .pos { color: var(--faint); width: 22px; font-variant-numeric: tabular-nums; }
+.roster .spacer { margin-left: auto; }
+.tick { color: var(--green); font-weight: 700; }
+
+/* Forms */
+label { display: block; font-size: 14px; font-weight: 600; margin: 14px 0 5px; }
+label.check { font-weight: 400; display: flex; gap: 8px; align-items: flex-start; }
+input[type=text], input[type=email], input[type=password], input[type=number],
+input[type=date], input[type=time], input[type=search], select, textarea {
+  width: 100%; padding: 10px 12px; font: inherit; color: var(--ink);
+  border: 1px solid #c9ccd1; border-radius: 8px; background: #fff;
+}
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--green); outline-offset: -1px; border-color: var(--green); }
+textarea { min-height: 80px; resize: vertical; }
+.row { display: flex; flex-wrap: wrap; gap: 12px; }
+.row > * { flex: 1 1 140px; min-width: 0; }
+fieldset { border: 1px solid var(--line); border-radius: 8px; padding: 4px 14px 16px; margin: 18px 0; }
+legend { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding: 0 6px; }
+
+/* Buttons */
+.btn, button {
+  display: inline-block; padding: 11px 18px; font: inherit; font-weight: 600;
+  border-radius: 8px; border: 1px solid var(--green); background: var(--green); color: #fff;
+  text-decoration: none; cursor: pointer; text-align: center;
+}
+.btn:hover, button:hover { background: var(--green-dark); }
+.btn.secondary, button.secondary { background: #fff; color: var(--green); }
+.btn.secondary:hover, button.secondary:hover { background: #f0f6f2; }
+.btn.danger, button.danger { background: #fff; color: var(--red); border-color: #e6b5b0; }
+.btn.danger:hover, button.danger:hover { background: #fdf3f2; }
+.btn.small, button.small { padding: 6px 12px; font-size: 14px; }
+.btn.block { display: block; width: 100%; }
+.btn[disabled], button[disabled] { opacity: .5; cursor: not-allowed; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+
+/* Flash */
+.flash { padding: 12px 14px; border-radius: 8px; margin: 0 0 16px; font-size: 15px; }
+.flash-ok { background: #dcf3e6; color: var(--green-dark); border: 1px solid #b4e0c8; }
+.flash-error { background: #fde8e6; color: #8a1c14; border: 1px solid #f2c0bb; }
+
+/* Tables */
+table { width: 100%; border-collapse: collapse; font-size: 15px; }
+th { text-align: left; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line); }
+td { padding: 10px 10px 10px 0; border-bottom: 1px solid #f0f1f3; vertical-align: top; }
+.table-scroll { overflow-x: auto; }
+
+/* Session list rows */
+.session-row {
+  display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline;
+  padding: 14px 0; border-bottom: 1px solid #f0f1f3; text-decoration: none; color: inherit;
+}
+.session-row:last-child { border-bottom: 0; }
+.session-row:hover { background: #fafbfc; }
+.session-row .when { font-weight: 600; min-width: 170px; }
+.session-row .count { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+hr { border: 0; border-top: 1px solid var(--line); margin: 20px 0; }
+.empty { color: var(--muted); padding: 18px 0; }
+details summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
+.guest-stepper { display: flex; align-items: center; gap: 12px; }
+.guest-stepper output { font-weight: 600; min-width: 4ch; text-align: center; }
+
+/* Mailing list rows: one form per person, so each row saves independently. */
+.people { margin-top: 8px; }
+.prow {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  padding: 10px 0; border-bottom: 1px solid #f0f1f3;
+}
+.prow:last-child { border-bottom: 0; }
+.prow-edit { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; flex: 1 1 420px; }
+.prow-edit input[type=text] { flex: 1 1 130px; min-width: 110px; }
+.prow-edit input[type=email] { flex: 2 1 190px; min-width: 140px; }
+.prow-check { margin: 0; white-space: nowrap; align-items: center; }
+.prow-check span { font-size: 14px; color: var(--muted); }
+
+/* The number field is the real control; JS hides it once the stepper works. */
+.guest-stepper input[type=number] { width: 5rem; flex: 0 0 auto; }
+.guest-stepper.js-on .js-hide { display: none; }
+.guest-stepper button { flex: 0 0 auto; }
+
+/* Detail tables sit inside cards, so the final row needs no divider. */
+table tr:last-child td { border-bottom: 0; }

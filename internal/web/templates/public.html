@@ -1,0 +1,13 @@
+{{define "public.html"}}<!-- participant layout -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>{{.Title}}</title>
+<link rel="stylesheet" href="/static/app.css?v={{.AssetV}}">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22><text y=%2214%22 font-size=%2214%22>🏸</text></svg>">
+<main class="wrap narrow">
+  {{with .Flash}}<div class="flash {{if .IsError}}flash-error{{else}}flash-ok{{end}}">{{.Message}}</div>{{end}}
+  {{template "content" .}}
+</main>
+<script src="/static/app.js?v={{.AssetV}}"></script>
+{{end}}

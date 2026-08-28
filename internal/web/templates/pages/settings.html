@@ -1,0 +1,63 @@
+{{define "content"}}
+{{$d := .Data.Defaults}}
+<h1>Settings</h1>
+<p class="sub">Defaults for new sessions, so the weekly job is two clicks.</p>
+
+<form method="post" action="/settings" class="card">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+  <h3>Session defaults</h3>
+  <div class="row">
+    <div><label for="courts">Courts</label>
+      <input type="number" id="courts" name="courts" min="1" max="20" value="{{$d.Courts}}" required></div>
+    <div><label for="cost">Cost per court, per hour</label>
+      <input type="text" id="cost" name="cost" inputmode="decimal" value="{{dollars $d.CostPerCourtHourCents}}" required></div>
+    <div><label for="max_players">Maximum players</label>
+      <input type="number" id="max_players" name="max_players" min="1" max="200" value="{{$d.MaxPlayers}}" required></div>
+  </div>
+  <div class="row">
+    <div><label for="start_time">Start time</label>
+      <input type="time" id="start_time" name="start_time" value="{{$d.StartTime}}" required></div>
+    <div><label for="end_time">End time</label>
+      <input type="time" id="end_time" name="end_time" value="{{$d.EndTime}}" required></div>
+  </div>
+  <div class="row">
+    <div><label for="deadline_days_before">Signup deadline: days before</label>
+      <input type="number" id="deadline_days_before" name="deadline_days_before" min="0" max="30" value="{{$d.DeadlineDaysBefore}}" required></div>
+    <div><label for="deadline_time">…at</label>
+      <input type="time" id="deadline_time" name="deadline_time" value="{{$d.DeadlineTime}}" required></div>
+  </div>
+  <label for="things_to_bring">Things to bring (included in every invitation)</label>
+  <textarea id="things_to_bring" name="things_to_bring">{{$d.ThingsToBring}}</textarea>
+
+  <hr>
+  <h3>Change password</h3>
+  <div class="row">
+    <div><label for="current_password">Current password</label>
+      <input type="password" id="current_password" name="current_password" autocomplete="current-password"></div>
+    <div><label for="new_password">New password</label>
+      <input type="password" id="new_password" name="new_password" autocomplete="new-password"></div>
+  </div>
+  <span class="faint">Leave both blank to keep your current password.</span>
+
+  <div class="actions"><button type="submit">Save settings</button></div>
+</form>
+
+<div class="card">
+  <h3>Email</h3>
+  <table>
+    <tr><td class="muted">SMTP server</td><td>{{if .Data.SMTPEnabled}}{{.Data.SMTPHost}}{{else}}<span class="badge badge-failed">not configured</span>{{end}}</td></tr>
+    <tr><td class="muted">Sending as</td><td>{{.Data.SMTPFrom}}</td></tr>
+    <tr><td class="muted">Timezone</td><td>{{.Data.Timezone}}</td></tr>
+    <tr><td class="muted">Links point to</td><td>{{.Data.BaseURL}}</td></tr>
+  </table>
+  <p class="faint">These come from the container's environment variables, not from this page.</p>
+  <form method="post" action="/settings/test-email">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <label for="to">Send a test email to</label>
+    <div class="row" style="align-items:flex-end">
+      <div><input type="email" id="to" name="to" value="{{.Data.OrganizerMail}}"></div>
+      <div style="flex:0 0 auto"><button class="secondary" type="submit">Send test</button></div>
+    </div>
+  </form>
+</div>
+{{end}}

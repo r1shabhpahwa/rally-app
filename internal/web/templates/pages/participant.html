@@ -1,0 +1,88 @@
+{{define "content"}}
+{{$e := .Data.Entry}}
+{{$s := .Data.Session}}
+
+<div class="card">
+  <h1 style="margin-top:0">🏸 Badminton</h1>
+  <p class="big" style="font-size:22px;margin:0">{{.Data.DateLine}}</p>
+  <p class="sub">{{.Data.TimeLine}} · {{$s.Courts}} {{plural $s.Courts "court" "courts"}}</p>
+
+  {{if eq .Data.Status "Cancelled"}}
+    <div class="flash flash-error">This session has been cancelled.</div>
+  {{else if eq $e.Status "confirmed"}}
+    <div class="flash flash-ok"><strong>You're confirmed.</strong>{{if $e.GuestCount}} You are bringing {{$e.GuestCount}} {{plural $e.GuestCount "guest" "guests"}}, so {{$e.PartySize}} spots are held for you.{{end}}</div>
+  {{else if eq $e.Status "waitlist"}}
+    <div class="flash" style="background:#fdf0d5;border:1px solid #f0d9a8;color:#7a5200">
+      <strong>You're on the waitlist{{with $e.WaitlistPosition}} at number {{.}}{{end}}.</strong>
+      You'll get an email if a spot opens up.
+    </div>
+  {{end}}
+
+  <table>
+    <tr><td class="muted">Spots</td><td>{{.Data.Roster.Headcount}} of {{$s.MaxPlayers}} filled</td></tr>
+    <tr><td class="muted">Sign up by</td><td>{{.Data.Deadline}}</td></tr>
+    <tr><td class="muted">Cost</td><td>{{money .Data.Cost.TotalCents}} total{{if .Data.Cost.PerPlayerCents}} · about {{money .Data.Cost.PerPlayerCents}} each{{end}}</td></tr>
+  </table>
+  {{if $s.Notes}}<p class="faint">{{$s.Notes}}</p>{{end}}
+</div>
+
+{{if .Data.SignupsOpen}}
+  {{if .Data.Responded}}
+  <div class="card">
+    <h3>Change your RSVP</h3>
+    <form method="post" action="/r/{{$e.Token}}/guest">
+      <label>Guests</label>
+      <div class="guest-stepper" data-stepper data-max="4">
+        <button class="secondary small" type="button" data-step="-1" aria-label="One fewer guest">−</button>
+        <output>{{$e.GuestCount}}</output>
+        <button class="secondary small" type="button" data-step="1" aria-label="One more guest">+</button>
+        <input type="number" name="guest_count" value="{{$e.GuestCount}}" min="0" max="4" class="js-hide" aria-label="Number of guests">
+        <button class="secondary small" type="submit">Update</button>
+      </div>
+      <p class="faint">Each guest takes a spot and pays a share. {{if lt .Data.Available 1}}There is no room for another guest right now.{{end}}</p>
+    </form>
+    <hr>
+    <form method="post" action="/r/{{$e.Token}}/cancel">
+      <button class="danger block" type="submit" data-confirm="Cancel your RSVP for this session?">Cancel my RSVP</button>
+    </form>
+    <p class="faint">Cancelling frees your spot for someone on the waitlist. You can sign up again from this page.</p>
+  </div>
+  {{else}}
+  <div class="card">
+    <h3>{{if .Data.WouldWaitlist}}Join the waitlist{{else}}Confirm your spot{{end}}</h3>
+    {{if .Data.WouldWaitlist}}<p class="faint">The session is full, so you'll go on the waitlist. The organizer will let you know if a spot opens up.</p>{{end}}
+    <form method="post" action="/r/{{$e.Token}}/signup">
+      <label for="name">Your name</label>
+      <input type="text" id="name" name="name" value="{{$e.PlayerName}}" required>
+
+      <label>Are you bringing a guest?</label>
+      <div class="guest-stepper" data-stepper data-max="4">
+        <button class="secondary small" type="button" data-step="-1" aria-label="One fewer guest">−</button>
+        <output>{{$e.GuestCount}}</output>
+        <button class="secondary small" type="button" data-step="1" aria-label="One more guest">+</button>
+        <input type="number" name="guest_count" value="{{$e.GuestCount}}" min="0" max="4" class="js-hide" aria-label="Number of guests">
+      </div>
+      <p class="faint">A guest takes a spot and pays a share. You and your guests are confirmed together, or wait together.</p>
+
+      <div class="actions">
+        <button class="block" type="submit">{{if .Data.WouldWaitlist}}Join waitlist{{else}}Confirm attendance{{end}}</button>
+      </div>
+    </form>
+  </div>
+  {{end}}
+
+  {{if .Data.ThingsToBring}}
+  <div class="card"><h3>What to bring</h3><p style="margin:0">{{.Data.ThingsToBring}}</p></div>
+  {{end}}
+{{else}}
+  <div class="card">
+    <p style="margin:0" class="muted">
+      {{if eq .Data.Status "Completed"}}This session has already happened.
+      {{else if eq .Data.Status "Cancelled"}}There is nothing more to do here.
+      {{else}}Signups are closed for this session. Message the organizer directly if you need to change something.{{end}}
+    </p>
+  </div>
+{{end}}
+
+<p class="faint" style="text-align:center">This page is yours alone. Keep the link to manage your RSVP.</p>
+{{end}}

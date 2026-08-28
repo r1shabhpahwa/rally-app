@@ -1,0 +1,68 @@
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#f4f5f7;margin:0;padding:24px 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <tr>
+    <td align="center">
+      <div style="display:none;max-height:0;overflow:hidden;opacity:0;">{{.Preheader}}</div>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:10px;overflow:hidden;border:1px solid #e3e5e8;">
+        <tr>
+          <td style="background-color:#0f5132;padding:20px 28px;">
+            <div style="color:#ffffff;font-size:18px;font-weight:600;">&#127992; {{.Title}}</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px;color:#1f2328;font-size:16px;line-height:1.55;">
+            <p style="margin:0 0 16px;">Hi {{.RecipientName}},</p>
+            {{range .Intro}}<p style="margin:0 0 16px;">{{.}}</p>{{end}}
+
+            {{if .Badge}}
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px;">
+              <tr><td style="background-color:{{.BadgeColor}};color:#ffffff;padding:7px 14px;border-radius:999px;font-size:14px;font-weight:600;">{{.Badge}}</td></tr>
+            </table>
+            {{end}}
+
+            {{if .Rows}}
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 22px;border:1px solid #e3e5e8;border-radius:8px;">
+              {{range .Rows}}
+              <tr>
+                <td style="padding:11px 16px;border-bottom:1px solid #f0f1f3;color:#5c6370;font-size:14px;width:42%;">{{.Label}}</td>
+                <td style="padding:11px 16px;border-bottom:1px solid #f0f1f3;color:#1f2328;font-size:14px;font-weight:600;">{{.Value}}</td>
+              </tr>
+              {{end}}
+            </table>
+            {{end}}
+
+            {{if .ActionURL}}
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px;">
+              <tr>
+                <td align="center" style="background-color:#0f5132;border-radius:8px;">
+                  <a href="{{.ActionURL}}" style="display:inline-block;padding:13px 30px;color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;">{{.ActionLabel}}</a>
+                </td>
+              </tr>
+            </table>
+            <p style="margin:0 0 20px;color:#8b919b;font-size:13px;word-break:break-all;">Or paste this link into your browser:<br>{{.ActionURL}}</p>
+            {{end}}
+
+            {{if .ThingsToBring}}
+            <p style="margin:0 0 8px;font-weight:600;font-size:15px;">What to bring</p>
+            <p style="margin:0 0 20px;color:#454c56;">{{.ThingsToBring}}</p>
+            {{end}}
+
+            {{if .Notes}}
+            <p style="margin:0 0 8px;font-weight:600;font-size:15px;">Notes</p>
+            <p style="margin:0 0 20px;color:#454c56;">{{.Notes}}</p>
+            {{end}}
+
+            {{if .SecondaryText}}<p style="margin:0 0 16px;color:#454c56;font-size:14px;">{{.SecondaryText}}</p>{{end}}
+
+            <p style="margin:20px 0 0;color:#454c56;">&mdash; {{.OrganizerName}}</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background-color:#fafbfc;padding:16px 28px;border-top:1px solid #e3e5e8;color:#8b919b;font-size:12px;line-height:1.5;">
+            {{if .ManageURL}}<a href="{{.ManageURL}}" style="color:#0f5132;">Manage my RSVP</a>{{if .UnsubscribeURL}} &middot; {{end}}{{end}}
+            {{if .UnsubscribeURL}}<a href="{{.UnsubscribeURL}}" style="color:#8b919b;">Unsubscribe from these emails</a>{{end}}
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>

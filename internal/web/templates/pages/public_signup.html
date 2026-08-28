@@ -1,0 +1,46 @@
+{{define "content"}}
+{{$s := .Data.Session}}
+<div class="card">
+  <h1 style="margin-top:0">🏸 Badminton</h1>
+  <p class="big" style="font-size:22px;margin:0">{{.Data.DateLine}}</p>
+  <p class="sub">{{.Data.TimeLine}} · {{$s.Courts}} {{plural $s.Courts "court" "courts"}}</p>
+
+  {{if eq .Data.Status "Cancelled"}}<div class="flash flash-error">This session has been cancelled.</div>{{end}}
+
+  <table>
+    <tr><td class="muted">Spots</td><td>{{.Data.Roster.Headcount}} of {{$s.MaxPlayers}} filled</td></tr>
+    <tr><td class="muted">Sign up by</td><td>{{.Data.Deadline}}</td></tr>
+  </table>
+  {{if $s.Notes}}<p class="faint">{{$s.Notes}}</p>{{end}}
+</div>
+
+{{if .Data.SignupsOpen}}
+<div class="card">
+  <h3>{{if .Data.Roster.IsFull}}Join the waitlist{{else}}Sign up{{end}}</h3>
+  <p class="faint">Were you forwarded this? Enter your details and you'll get your own link for changing or cancelling later.</p>
+  <form method="post" action="/s/{{$s.PublicID}}">
+    <label for="name">Your name</label>
+    <input type="text" id="name" name="name" required>
+    <label for="email">Your email</label>
+    <input type="email" id="email" name="email" required>
+
+    <label>Are you bringing a guest?</label>
+    <div class="guest-stepper" data-stepper data-max="4">
+      <button class="secondary small" type="button" data-step="-1" aria-label="One fewer guest">−</button>
+      <output>0</output>
+      <button class="secondary small" type="button" data-step="1" aria-label="One more guest">+</button>
+      <input type="number" name="guest_count" value="0" min="0" max="4" class="js-hide" aria-label="Number of guests">
+    </div>
+
+    <div class="actions">
+      <button class="block" type="submit">{{if .Data.Roster.IsFull}}Join waitlist{{else}}Confirm attendance{{end}}</button>
+    </div>
+  </form>
+</div>
+{{if .Data.ThingsToBring}}
+<div class="card"><h3>What to bring</h3><p style="margin:0">{{.Data.ThingsToBring}}</p></div>
+{{end}}
+{{else}}
+<div class="card"><p style="margin:0" class="muted">Signups are closed for this session.</p></div>
+{{end}}
+{{end}}

@@ -1,0 +1,46 @@
+{{define "content"}}
+<div class="card-head">
+  <h1>Sessions</h1>
+  <div class="actions" style="margin:0">
+    {{if .Data.CanDuplicate}}<a class="btn secondary" href="/sessions/new?duplicate=1">Duplicate last session</a>{{end}}
+    <a class="btn" href="/sessions/new">+ New session</a>
+  </div>
+</div>
+<p class="sub">Mailing list: <a href="/players">{{.Data.MailingCount}} {{plural .Data.MailingCount "person" "people"}}</a>. New sessions go to everyone on it.</p>
+
+<div class="card">
+  <h3>Upcoming</h3>
+  {{if .Data.Upcoming}}
+    <div>
+      {{range .Data.Upcoming}}
+      <a class="session-row" href="/sessions/{{.Session.ID}}">
+        <span class="when">{{dateLine .Session}}</span>
+        <span class="muted">{{timeRange .Session}}</span>
+        <span class="count">{{.Roster.Headcount}}/{{.Session.MaxPlayers}} confirmed{{if .Roster.Waitlist}} · {{len .Roster.Waitlist}} waiting{{end}}</span>
+        <span class="{{statusClass .Status}}" style="margin-left:auto">{{.Status}}</span>
+      </a>
+      {{end}}
+    </div>
+  {{else}}
+    <p class="empty">No upcoming sessions. Create one to get started.</p>
+  {{end}}
+</div>
+
+<div class="card">
+  <h3>Past</h3>
+  {{if .Data.Past}}
+    <div>
+      {{range .Data.Past}}
+      <a class="session-row" href="/sessions/{{.Session.ID}}">
+        <span class="when">{{dateLine .Session}}</span>
+        <span class="count">{{.Roster.Headcount}} played</span>
+        <span class="muted">{{money .Cost.TotalCents}}{{if .Cost.PerPlayerCents}} · {{money .Cost.PerPlayerCents}} each{{end}}</span>
+        <span class="{{statusClass .Status}}" style="margin-left:auto">{{.Status}}</span>
+      </a>
+      {{end}}
+    </div>
+  {{else}}
+    <p class="empty">Nothing yet.</p>
+  {{end}}
+</div>
+{{end}}
