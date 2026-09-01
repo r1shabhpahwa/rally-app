@@ -819,8 +819,13 @@ func TestCreditAppearsOnEveryPageWithoutLeakingTokens(t *testing.T) {
 		if !strings.Contains(body, "github.com/r1shabhpahwa/rally-app") {
 			t.Errorf("%s is missing the open-source link", label)
 		}
-		if !strings.Contains(body, "Rishabh Pahwa") {
-			t.Errorf("%s is missing the author credit", label)
+		// Deliberately not the author's name: the credit is meant to be quiet,
+		// and the identity lives behind the link rather than on the page.
+		if !strings.Contains(body, "rishabhpahwa.com") {
+			t.Errorf("%s is missing the author link", label)
+		}
+		if strings.Contains(body, "Rishabh Pahwa") {
+			t.Errorf("%s spells out the author's name; the credit should stay quiet", label)
 		}
 	}
 
