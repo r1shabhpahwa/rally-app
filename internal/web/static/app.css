@@ -173,3 +173,21 @@ details summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
 
 /* Detail tables sit inside cards, so the final row needs no divider. */
 table tr:last-child td { border-bottom: 0; }
+
+/* Small credit line at the foot of every page. Deliberately quiet: it should
+   be findable, not part of the interface. The links carry rel="noreferrer"
+   because these pages can hold a participant's token in the URL -- the
+   no-referrer header already covers that, and this covers it again at the
+   element. */
+.credit {
+  margin: 34px 0 0;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--faint);
+}
+.credit a {
+  color: var(--faint);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.credit a:hover { color: var(--muted); }

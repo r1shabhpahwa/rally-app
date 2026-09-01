@@ -800,3 +800,37 @@ func TestOrganizerAddingSomeoneDoesNotEmailThemselves(t *testing.T) {
 		t.Fatalf("the organizer was emailed about their own action: %v", subs)
 	}
 }
+
+func TestCreditAppearsOnEveryPageWithoutLeakingTokens(t *testing.T) {
+	h := newHarness(t)
+	h.login()
+	h.setupSession("12")
+	h.post("/sessions/1/invite", url.Values{})
+	tokens := h.invitationTokens()
+	sess, _ := h.store.Session(context.Background(), 1)
+
+	for label, path := range map[string]string{
+		"login page":    "/login",
+		"dashboard":     "/",
+		"RSVP page":     "/r/" + tokens["david@example.com"],
+		"public signup": "/s/" + sess.PublicID,
+	} {
+		_, body := h.get(path)
+		if !strings.Contains(body, "github.com/r1shabhpahwa/rally-app") {
+			t.Errorf("%s is missing the open-source link", label)
+		}
+		if !strings.Contains(body, "Rishabh Pahwa") {
+			t.Errorf("%s is missing the author credit", label)
+		}
+	}
+
+	// These pages carry a participant's token in the URL, so an outbound link
+	// must not hand that URL to GitHub in a Referer header.
+	_, rsvp := h.get("/r/" + tokens["david@example.com"])
+	for _, link := range strings.Split(rsvp, "<a ")[1:] {
+		tag := link[:strings.Index(link, ">")]
+		if strings.Contains(tag, "github.com") && !strings.Contains(tag, "noreferrer") {
+			t.Errorf("outbound link on a token page lacks rel=noreferrer: %s", tag)
+		}
+	}
+}
